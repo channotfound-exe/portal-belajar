@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portal Belajar Sains Data — Modul, Simulasi UAS & Live Coding</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236366f1'/%3E%3Cstop offset='1' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='41' text-anchor='middle' font-family='sans-serif' font-weight='800' font-size='26' fill='white'%3EDS%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@14.1.2/marked.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="theme-dark">
+  <div class="app-shell">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="btn-home" class="brand-btn" title="Kembali ke Dashboard">
+          <span class="brand-badge">DS</span>
+          <div>
+            <div class="brand-title">Portal Belajar Sains Data</div>
+            <div class="brand-sub">Situs Statis • 150 Soal/MK (3 Tahap) • Live Coding Pyodide • Ekspor MD</div>
+          </div>
+        </button>
+      </div>
+      <div class="topbar-center" id="active-course-breadcrumb" style="display:none;">
+        <span class="crumb-pill" id="crumb-sem"></span>
+        <span class="crumb-sep">›</span>
+        <span class="crumb-title" id="crumb-title"></span>
+      </div>
+      <div class="topbar-right">
+        <button id="btn-resume-last" class="btn btn-accent" style="display:none;">▶ Lanjutkan Terakhir</button>
+        <button id="btn-sessions-modal" class="btn btn-ghost" title="Riwayat Laporan Sesi Tersimpan di Browser">
+          <span>📄 Riwayat Sesi MD</span>
+          <span class="badge-count" id="session-count-badge">0</span>
+        </button>
+        <button id="btn-theme-toggle" class="btn btn-ghost" title="Ganti Tema Gelap/Terang">🌓 Tema</button>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+      <!-- VIEW 1: DASHBOARD -->
+      <section id="view-dashboard" class="view active">
+        <div class="hero-card">
+          <div>
+            <span class="hero-tag">Program Studi Sains Data — Persiapan UAS Terpadu</span>
+            <h1>Belajar Efisien, Latihan Terarah, &amp; Diagnostik Otomatis</h1>
+            <p>
+              Pilih mata kuliah di bawah untuk membaca modul ringkas bernilai UAS tinggi, mempelajari topik tambahan yang tidak lengkap di slide, mengerjakan <strong>150 soal (Tahap 1–3) urut per bab</strong> dengan koreksi seketika, berlatih <strong>50 soal praktek / Live Coding Python (Pyodide) per matkul</strong>, serta mengunduh hasil evaluasi menjadi file <code>.md</code>. Seluruh progres tersimpan otomatis di browser Anda.
+            </p>
+          </div>
+          <div class="hero-stats" id="global-stats">
+            <div class="stat-box">
+              <div class="stat-num" id="stat-total-courses">13</div>
+              <div class="stat-label">Mata Kuliah</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-num" id="stat-total-questions">1950</div>
+              <div class="stat-label">Total Soal (3 Tahap)</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-num" id="stat-total-labs">650</div>
+              <div class="stat-label">Lab Praktek</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-num" id="stat-answered-overall">0%</div>
+              <div class="stat-label">Progres Anda</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="filter-pills">
+            <button class="pill active" data-sem="all">Semua Semester (13)</button>
+            <button class="pill" data-sem="1">Semester 1 (6)</button>
+            <button class="pill" data-sem="3">Semester 3 (7)</button>
+          </div>
+          <div class="search-wrap">
+            <input type="search" id="course-search" aria-label="Cari mata kuliah atau kode MK" placeholder="Cari mata kuliah atau kode MK..." />
+          </div>
+        </div>
+
+        <div id="course-grid" class="course-grid">
+          <div class="loading-box">Memuat daftar mata kuliah...</div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: COURSE WORKSPACE -->
+      <section id="view-course" class="view">
+        <div class="course-header-bar">
+          <div class="course-header-info">
+            <div class="course-badges">
+              <span class="tag tag-sem" id="ch-sem"></span>
+              <span class="tag tag-code" id="ch-code"></span>
+              <span class="tag tag-credits" id="ch-credits"></span>
+            </div>
+            <h2 id="ch-title"></h2>
+            <p id="ch-desc"></p>
+          </div>
+          <div class="course-quick-metrics">
+            <div class="mini-metric">
+              <span class="mini-label">Penguasaan Bab</span>
+              <strong id="ch-mastery">0 / 0</strong>
+            </div>
+            <div class="mini-metric">
+              <span class="mini-label">Akurasi Soal</span>
+              <strong id="ch-accuracy">-</strong>
+            </div>
+            <div class="mini-metric">
+              <span class="mini-label">Lab Selesai</span>
+              <strong id="ch-labs-done">0 / 0</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <nav class="workspace-tabs">
+          <button class="tab-btn active" data-tab="modul">📖 Modul Baca Efisien</button>
+          <button class="tab-btn" data-tab="uas-gaps">🎯 Tambahan Potensial UAS <span class="tab-badge" id="tab-badge-gaps">0</span></button>
+          <button class="tab-btn" data-tab="cheatsheet">📌 Cheat Sheet Rumus</button>
+          <button class="tab-btn" data-tab="quiz">📝 Simulasi Soal <span class="tab-badge" id="tab-badge-quiz">150</span></button>
+          <button class="tab-btn" data-tab="flashcard">⚡ Flashcard Cepat</button>
+          <button class="tab-btn" data-tab="practice">💻 Lab Praktek &amp; Live Coding <span class="tab-badge" id="tab-badge-labs">50</span></button>
+          <button class="tab-btn" data-tab="analytics">📊 Analitik &amp; Ekspor Sesi MD</button>
+        </nav>
+
+        <!-- TAB 1: MODUL BACA -->
+        <div id="tab-modul" class="tab-panel active">
+          <div class="modul-layout">
+            <aside class="chapter-sidebar">
+              <div class="sidebar-head">
+                <h3>Daftar Bab / Sesi</h3>
+                <input type="search" id="modul-search" aria-label="Cari topik di modul" placeholder="Cari topik di modul..." />
+              </div>
+              <div id="chapter-list" class="chapter-list"></div>
+            </aside>
+            <article class="chapter-content-card" id="chapter-detail">
+              <div class="loading-box">Pilih bab di sebelah kiri untuk mulai membaca.</div>
+            </article>
+          </div>
+        </div>
+
+        <!-- TAB 2: TAMBAHAN POTENSIAL UAS -->
+        <div id="tab-uas-gaps" class="tab-panel">
+          <div class="panel-intro">
+            <h3>Materi Potensial UAS yang Kurang Jelas / Tidak Tercantum di Slide</h3>
+            <p>Bagian ini merangkum materi dari Daftar Isi Modul resmi (BMP) serta rumus/konsep penting yang pada file slide asli berupa gambar tidak terekstrak, terlewat, atau belum dijabarkan rinci.</p>
+          </div>
+          <div id="uas-gaps-list" class="gaps-grid"></div>
+        </div>
+
+        <!-- TAB 2B: CHEAT SHEET -->
+        <div id="tab-cheatsheet" class="tab-panel">
+          <div class="panel-intro" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h3>Cheat Sheet Satu Halaman — Poin Inti, Rumus &amp; Jebakan UAS</h3>
+              <p>Ringkasan cepat seluruh bab untuk review 10 menit sebelum ujian.</p>
+            </div>
+            <button id="btn-print-cheatsheet" class="btn btn-ghost">🖨 Cetak / Simpan PDF</button>
+          </div>
+          <div id="cheatsheet-grid" class="cheatsheet-grid"></div>
+        </div>
+
+        <!-- TAB 3: SIMULASI SOAL -->
+        <div id="tab-quiz" class="tab-panel">
+          <div class="quiz-controls-card">
+            <div class="quiz-filters">
+              <label>
+                Tahap:
+                <select id="quiz-filter-stage">
+                  <option value="1">Tahap 1 (Soal 1–50)</option>
+                </select>
+              </label>
+              <label>
+                Bab / Sesi:
+                <select id="quiz-filter-bab"></select>
+              </label>
+              <label>
+                Prioritas UAS:
+                <select id="quiz-filter-priority">
+                  <option value="all">Semua Prioritas</option>
+                  <option value="Sangat Tinggi">Sangat Tinggi</option>
+                  <option value="Tinggi">Tinggi</option>
+                  <option value="Sedang">Sedang</option>
+                </select>
+              </label>
+              <label>
+                Status:
+                <select id="quiz-filter-status">
+                  <option value="all">Semua Soal</option>
+                  <option value="unanswered">Belum Dijawab</option>
+                  <option value="wrong">Hanya yang Salah (Remedial)</option>
+                  <option value="flagged">Ditandai Sulit</option>
+                </select>
+              </label>
+              <label>
+                Mode:
+                <select id="quiz-mode">
+                  <option value="instant">Latihan (Koreksi Langsung)</option>
+                  <option value="exam">Simulasi Ujian (Timer 60m, Koreksi di Akhir)</option>
+                </select>
+              </label>
+            </div>
+            <div class="quiz-actions-top">
+              <span id="quiz-live-score" class="score-pill">Skor: 0/0</span>
+              <div id="exam-timer" class="timer-pill" style="display:none;">⏱️ 60:00</div>
+              <button id="btn-start-exam" class="btn btn-primary" style="display:none;">Mulai Ujian</button>
+              <button id="btn-focus-uas" class="btn btn-ghost" title="Filter hanya prioritas UAS Sangat Tinggi">🎯 Fokus UAS</button>
+              <button id="btn-reset-quiz" class="btn btn-ghost">↺ Reset</button>
+            </div>
+          </div>
+
+          <div class="quiz-workspace">
+            <div class="quiz-main">
+              <div class="quiz-progress-bar"><div id="quiz-progress-fill" class="quiz-progress-fill"></div></div>
+              <div id="question-stage" class="question-card"></div>
+              <div class="quiz-nav-footer">
+                <button id="btn-prev-q" class="btn btn-ghost">← Sebelumnya</button>
+                <span id="q-counter" class="q-counter">Soal 1 / 50</span>
+                <button id="btn-next-q" class="btn btn-primary">Berikutnya →</button>
+              </div>
+              <div class="kbd-hint">Pintasan keyboard: <code>1–4</code> atau <code>A–D</code> untuk menjawab • <code>←</code> / <code>→</code> pindah soal • <code>F</code> tandai sulit</div>
+            </div>
+            <aside class="quiz-navigator">
+              <h4>Navigasi Soal (Urut Bab)</h4>
+              <div class="nav-legend">
+                <span><i class="dot dot-correct"></i>Benar</span>
+                <span><i class="dot dot-wrong"></i>Salah</span>
+                <span><i class="dot dot-flag"></i>Tandai</span>
+              </div>
+              <div id="question-grid" class="question-grid"></div>
+              <div class="quick-session-box">
+                <button id="btn-goto-analytics" class="btn btn-accent full-width">📊 Analitik &amp; Ekspor MD</button>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <!-- TAB 4: FLASHCARD -->
+        <div id="tab-flashcard" class="tab-panel">
+          <div class="flashcard-controls">
+            <label>Pilih Bab: <select id="fc-bab-filter"></select></label>
+            <button id="btn-fc-shuffle" class="btn btn-ghost">🔀 Acak Kartu</button>
+          </div>
+          <div class="flashcard-stage">
+            <div id="flashcard-box" class="flashcard">
+              <div class="flashcard-inner">
+                <div class="flashcard-front">
+                  <span class="fc-tag" id="fc-tag"></span>
+                  <h3 id="fc-front-title"></h3>
+                  <div id="fc-front-body"></div>
+                  <div class="fc-hint">Klik kartu untuk membalik dan melihat rumus / jebakan UAS</div>
+                </div>
+                <div class="flashcard-back">
+                  <span class="fc-tag">Ringkasan Kunci &amp; Jebakan UAS</span>
+                  <div id="fc-back-body"></div>
+                </div>
+              </div>
+            </div>
+            <div class="fc-nav">
+              <button id="btn-fc-prev" class="btn btn-ghost">← Kartu Sebelumnya</button>
+              <span id="fc-counter">1 / 1</span>
+              <button id="btn-fc-next" class="btn btn-primary">Kartu Berikutnya →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: LAB PRAKTEK & LIVE CODING -->
+        <div id="tab-practice" class="tab-panel">
+          <div class="practice-layout">
+            <aside class="practice-sidebar">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:6px;">
+                <h3 style="margin:0;">Daftar Lab Praktek</h3>
+                <button id="btn-open-scratchpad" class="btn btn-ghost" style="padding:4px 8px;font-size:11px;">🧪 Sandbox</button>
+              </div>
+              <div class="pyodide-pill" id="pyodide-status-pill">🐍 Pyodide: Siap dimuat saat dijalankan</div>
+              <div id="practice-list" class="practice-list"></div>
+            </aside>
+            <div class="practice-editor-area" id="practice-stage">
+              <div class="loading-box">Pilih soal praktek di sebelah kiri.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 6: ANALITIK & EKSPOR MD -->
+        <div id="tab-analytics" class="tab-panel">
+          <div class="analytics-grid">
+            <div class="analytics-card">
+              <h3>Ringkasan Penguasaan &amp; Bagian yang Harus Diulang</h3>
+              <div id="analytics-chapter-table"></div>
+            </div>
+            <div class="analytics-card">
+              <h3>Ekspor Hasil Sesi ke File Markdown (.md)</h3>
+              <p class="muted">
+                Laporan otomatis menganalisis performa per bab, daftar soal yang salah beserta materi remedialnya, lab praktek yang belum lulus, serta prioritas ulangan menjelang UAS. Ekspor dilakukan langsung di browser.
+              </p>
+              <div class="export-actions">
+                <button id="btn-refresh-md" class="btn btn-ghost">🔄 Perbarui Preview</button>
+                <button id="btn-download-md" class="btn btn-accent">⬇ Unduh File .md</button>
+                <button id="btn-save-md-local" class="btn btn-primary">💾 Simpan ke Riwayat Browser</button>
+                <button id="btn-copy-md" class="btn btn-ghost">📋 Salin Teks</button>
+              </div>
+              <div id="save-status-msg" class="save-status"></div>
+              <textarea id="md-preview-box" class="md-preview-box" aria-label="Preview Laporan Analisis Sesi Markdown" readonly></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL RIWAYAT SESI MD (LOCALSTORAGE) -->
+  <div id="sessions-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>📄 Riwayat Laporan Sesi Tersimpan (Browser LocalStorage)</h3>
+        <button id="btn-close-modal" class="btn btn-ghost">✕</button>
+      </div>
+      <div class="modal-body" id="sessions-modal-body">
+        Memuat daftar riwayat...
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

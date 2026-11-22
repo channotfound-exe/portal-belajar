@@ -1,0 +1,93 @@
+[
+  {
+    "id": "statistika",
+    "semester": 1,
+    "code": "MKKI4201",
+    "title": "Statistika (Pengantar Statistika)",
+    "file": "data/courses/statistika.json"
+  },
+  {
+    "id": "pengantar_sains_data",
+    "semester": 1,
+    "code": "STDA4101",
+    "title": "Pengantar Sains Data",
+    "file": "data/courses/pengantar_sains_data.json"
+  },
+  {
+    "id": "kalkulus_diferensial",
+    "semester": 1,
+    "code": "STMA4111",
+    "title": "Kalkulus Diferensial",
+    "file": "data/courses/kalkulus_diferensial.json"
+  },
+  {
+    "id": "dasar_infrastruktur_ti",
+    "semester": 1,
+    "code": "STSI4304",
+    "title": "Dasar Infrastruktur TI",
+    "file": "data/courses/dasar_infrastruktur_ti.json"
+  },
+  {
+    "id": "pengantar_sistem_informasi",
+    "semester": 1,
+    "code": "SIM / PSI",
+    "title": "Pengantar Sistem Informasi",
+    "file": "data/courses/pengantar_sistem_informasi.json"
+  },
+  {
+    "id": "bahasa_indonesia",
+    "semester": 1,
+    "code": "MKWN4108",
+    "title": "Bahasa Indonesia",
+    "file": "data/courses/bahasa_indonesia.json"
+  },
+  {
+    "id": "alprog",
+    "semester": 3,
+    "code": "PEMA4000",
+    "title": "Algoritma dan Pemrograman (ALPROG)",
+    "file": "data/courses/alprog.json"
+  },
+  {
+    "id": "analitik_big_data",
+    "semester": 3,
+    "code": "ABD",
+    "title": "Analitik Big Data",
+    "file": "data/courses/analitik_big_data.json"
+  },
+  {
+    "id": "basis_data_nosql",
+    "semester": 3,
+    "code": "STDA 4201",
+    "title": "Basis Data NoSQL",
+    "file": "data/courses/basis_data_nosql.json"
+  },
+  {
+    "id": "data_mining",
+    "semester": 3,
+    "code": "STSI4307",
+    "title": "Data Mining",
+    "file": "data/courses/data_mining.json"
+  },
+  {
+    "id": "pengantar_kecerdasan_artifisial",
+    "semester": 3,
+    "code": "STDA4203",
+    "title": "Pengantar Kecerdasan Artifisial",
+    "file": "data/courses/pengantar_kecerdasan_artifisial.json"
+  },
+  {
+    "id": "pengantar_statistika_matematis",
+    "semester": 3,
+    "code": "STIK4235",
+    "title": "Pengantar Statistika Matematis",
+    "file": "data/courses/pengantar_statistika_matematis.json"
+  },
+  {
+    "id": "pancasila",
+    "semester": 3,
+    "code": "MKWN4110",
+    "title": "Pancasila",
+    "file": "data/courses/pancasila.json"
+  }
+]
