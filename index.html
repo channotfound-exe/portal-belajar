@@ -54,6 +54,22 @@
         </button>
       </nav>
 
+      <div class="sidebar-tools-card" aria-label="Alat Belajar Cepat">
+        <div class="muted-label" style="margin-bottom:6px;">Alat Belajar</div>
+        <div class="sidebar-tools-grid">
+          <button class="btn btn-ghost btn-sm st-btn" id="btn-pomo-side" title="Pomodoro Timer 25/5">
+            <span>🍅 Pomodoro</span>
+            <strong id="pomo-side-badge">25:00</strong>
+          </button>
+          <button class="btn btn-ghost btn-sm st-btn" id="btn-calc-side" title="Kalkulator Ilmiah">
+            <span>🧮 Kalkulator</span>
+          </button>
+          <button class="btn btn-ghost btn-sm st-btn" id="btn-formula-side" title="Lembar Rumus Cepat per Matkul">
+            <span>📌 Lembar Rumus</span>
+          </button>
+        </div>
+      </div>
+
       <div class="sidebar-gamify-card">
         <div class="sg-row"><span>🔥 Streak</span><strong id="side-streak">1 Hari</strong></div>
         <div class="sg-row"><span>✨ Total XP</span><strong id="side-xp">0 XP</strong></div>
@@ -87,9 +103,21 @@
             <svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span>Pasang Aplikasi</span>
           </button>
+          <button id="btn-pomo-top" class="btn btn-ghost btn-sm" title="Pomodoro Timer 25/5" aria-label="Pomodoro Timer">
+            <span>🍅</span>
+            <span id="pomo-top-label" class="hide-xs">25:00</span>
+          </button>
+          <button id="btn-calc-top" class="btn btn-ghost btn-sm" title="Kalkulator Ilmiah" aria-label="Kalkulator Ilmiah">
+            <span>🧮</span>
+            <span class="hide-xs">Kalkulator</span>
+          </button>
+          <button id="btn-formula-top" class="btn btn-ghost btn-sm" title="Lembar Rumus Cepat per Matkul" aria-label="Lembar Rumus Cepat">
+            <span>📌</span>
+            <span class="hide-xs">Rumus</span>
+          </button>
           <button id="btn-global-search" class="btn btn-ghost btn-sm" title="Pencarian Global Modul, Soal & Istilah (Ctrl+K)" aria-label="Pencarian Global">
             <svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <span>Cari</span>
+            <span class="hide-xs">Cari</span>
           </button>
           <button id="btn-sessions-modal" class="btn btn-ghost btn-sm" title="Riwayat Laporan Sesi MD">
             <svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -326,12 +354,24 @@
                 <button id="btn-start-exam" class="btn btn-primary btn-sm" style="display:none;">Mulai Simulasi UAS</button>
                 <button id="btn-reshuffle-q" class="btn btn-ghost btn-sm" style="display:none;">🔀 Acak Ulang</button>
                 <button id="btn-focus-uas" class="btn btn-ghost btn-sm" title="Filter hanya prioritas UAS Sangat Tinggi">🎯 Fokus UAS</button>
+                <button id="btn-focus-mode" class="btn btn-ghost btn-sm" title="Sembunyikan navigasi & elemen dekoratif saat mengerjakan soal">🧘 Mode Fokus</button>
                 <button id="btn-toggle-qgrid" class="btn btn-ghost btn-sm">🗺 Nomor Soal</button>
                 <button id="btn-reset-quiz" class="btn btn-ghost btn-sm">↺ Reset</button>
               </div>
             </div>
 
             <div class="quiz-single-stage">
+              <div id="focus-mode-bar" class="focus-mode-bar" style="display:none;">
+                <div class="row-between" style="width:100%;">
+                  <span style="font-weight:800;font-size:14px;">🧘 Mode Fokus — Bebas Gangguan</span>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                    <button id="btn-pomo-focus" class="btn btn-ghost btn-sm" title="Pomodoro Timer">🍅 <span id="pomo-focus-label">25:00</span></button>
+                    <button id="btn-calc-focus" class="btn btn-ghost btn-sm" title="Kalkulator Ilmiah">🧮 Kalkulator</button>
+                    <button id="btn-formula-focus" class="btn btn-ghost btn-sm" title="Lembar Rumus">📌 Rumus</button>
+                    <button id="btn-exit-focus-mode" class="btn btn-primary btn-sm">✕ Keluar Mode Fokus</button>
+                  </div>
+                </div>
+              </div>
               <div class="quiz-progress-bar"><div id="quiz-progress-fill" class="quiz-progress-fill"></div></div>
               <div id="question-stage" class="question-card"></div>
               <div class="quiz-nav-footer">
@@ -467,7 +507,7 @@
         <section id="sec-pengaturan" class="page-section">
           <div class="settings-grid">
             <div class="settings-card">
-              <h3>🎨 Tampilan &amp; Tema</h3>
+              <h3>🎨 Tampilan, Tema &amp; Ukuran Font</h3>
               <p class="muted">Pilih tema pastel terang atau pastel gelap. Pengaturan default mengikuti preferensi sistem perangkat Anda dan tersimpan otomatis.</p>
               <div class="theme-choices" id="theme-choices">
                 <button class="btn btn-ghost" data-theme-pref="system">🖥 Ikuti Sistem</button>
@@ -475,6 +515,16 @@
                 <button class="btn btn-ghost" data-theme-pref="dark">🌙 Pastel Gelap</button>
               </div>
               <p class="muted" id="theme-current-note" style="margin-top:10px;"></p>
+
+              <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;" />
+              <div style="font-weight:700;font-size:14px;margin-bottom:6px;">🔠 Ukuran Font Baca &amp; Soal</div>
+              <div class="theme-choices" id="font-size-choices">
+                <button class="btn btn-ghost btn-sm" data-font-size="14">Kecil (14px)</button>
+                <button class="btn btn-ghost btn-sm selected" data-font-size="16">Normal (16px)</button>
+                <button class="btn btn-ghost btn-sm" data-font-size="18">Besar (18px)</button>
+                <button class="btn btn-ghost btn-sm" data-font-size="20">Ekstra (20px)</button>
+              </div>
+              <p class="muted" id="font-size-note" style="margin-top:8px;">Ukuran font saat ini: Normal (16px)</p>
             </div>
 
             <div class="settings-card">
@@ -498,7 +548,26 @@
                 <input type="file" id="input-import-backup-json" accept="application/json,.json" style="display:none;" aria-label="Pilih file cadangan JSON" />
                 <button id="btn-reset-all-progress" class="btn btn-danger">🗑 Reset Semua Progres</button>
               </div>
+              <div id="reset-confirm-box" class="reset-confirm-box" style="display:none;">
+                <div style="font-weight:700;font-size:14px;margin-bottom:8px;">⚠ Yakin ingin menghapus seluruh progres belajar, skor, catatan, bookmark, dan XP di browser ini?</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button id="btn-confirm-reset-yes" class="btn btn-danger btn-sm">Ya, Hapus Semua</button>
+                  <button id="btn-confirm-reset-no" class="btn btn-ghost btn-sm">Batal</button>
+                </div>
+              </div>
               <div id="backup-status-msg" class="save-status" style="margin-top:10px;"></div>
+            </div>
+
+            <div class="settings-card">
+              <h3>ℹ️ Tentang &amp; Versi Aplikasi</h3>
+              <p class="muted">Informasi versi situs statis PWA, cakupan materi, dan kapasitas penyimpanan browser.</p>
+              <div class="pwa-info-list">
+                <div>Nama Aplikasi: <strong>Portal Belajar Sains Data</strong></div>
+                <div>Versi Aplikasi: <strong id="settings-app-version">v2.4.0 (Pastel Kalem PWA)</strong></div>
+                <div>Cache Service Worker: <strong id="settings-cache-version">portal-v8</strong></div>
+                <div>Bank Materi: <strong>13 Mata Kuliah • 1.950 Soal • 650 Lab</strong></div>
+                <div>Ukuran Data Lokal: <strong id="settings-storage-size">0 KB</strong></div>
+              </div>
             </div>
           </div>
         </section>
@@ -557,6 +626,116 @@
           <p>Ketik kata kunci seperti <code>Bayes</code>, <code>normalisasi</code>, <code>chi-square</code>, atau <code>regresi</code> untuk menyorot dan melompat langsung ke materi/soal.</p>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL POMODORO TIMER 25/5 -->
+  <div id="pomodoro-modal" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-label="Pomodoro Timer">
+    <div class="modal-backdrop" data-close-modal="pomodoro-modal"></div>
+    <div class="modal-dialog pomo-dialog">
+      <div class="modal-header">
+        <h3>🍅 Pomodoro Timer (25 / 5 Menit)</h3>
+        <button class="btn btn-ghost btn-sm" data-close-modal="pomodoro-modal" aria-label="Tutup Pomodoro">✕</button>
+      </div>
+      <div class="modal-body pomo-body">
+        <div class="pomo-phase-pills">
+          <button id="btn-pomo-phase-focus" class="pill active">🎯 Fokus 25m</button>
+          <button id="btn-pomo-phase-break" class="pill">☕ Istirahat 5m</button>
+        </div>
+        <div class="pomo-clock-card">
+          <div id="pomo-phase-label" class="muted-label">Sesi Fokus Belajar</div>
+          <div id="pomo-time-display" class="pomo-time">25:00</div>
+          <div class="progress-track" style="max-width:280px;margin:10px auto 0;">
+            <div id="pomo-progress-fill" class="progress-fill" style="width:0%;background:linear-gradient(90deg,var(--peach),var(--lavender));"></div>
+          </div>
+        </div>
+        <div class="pomo-controls">
+          <button id="btn-pomo-toggle" class="btn btn-primary">▶ Mulai</button>
+          <button id="btn-pomo-reset" class="btn btn-ghost">↺ Reset</button>
+          <button id="btn-pomo-switch" class="btn btn-ghost">⇄ Ganti Fase</button>
+        </div>
+        <div class="muted" id="pomo-status-note" style="font-size:13px;margin-top:10px;">Sesi fokus selesai hari ini: <strong id="pomo-done-today">0</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL KALKULATOR ILMIAH SEDERHANA -->
+  <div id="calc-modal" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-label="Kalkulator Ilmiah">
+    <div class="modal-backdrop" data-close-modal="calc-modal"></div>
+    <div class="modal-dialog calc-dialog">
+      <div class="modal-header">
+        <h3>🧮 Kalkulator Ilmiah Sederhana</h3>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button id="btn-calc-angle" class="btn btn-ghost btn-sm" title="Ganti satuan sudut DEG / RAD">DEG</button>
+          <button class="btn btn-ghost btn-sm" data-close-modal="calc-modal" aria-label="Tutup Kalkulator">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="calc-screen">
+          <div id="calc-expr-display" class="calc-expr" aria-label="Ekspresi kalkulator">0</div>
+          <div id="calc-result-display" class="calc-result" aria-live="polite">0</div>
+        </div>
+        <div class="calc-keypad" id="calc-keypad">
+          <button class="calc-key sci" data-ckey="sin(">sin</button>
+          <button class="calc-key sci" data-ckey="cos(">cos</button>
+          <button class="calc-key sci" data-ckey="tan(">tan</button>
+          <button class="calc-key sci" data-ckey="sqrt(">√</button>
+          <button class="calc-key sci" data-ckey="ln(">ln</button>
+
+          <button class="calc-key sci" data-ckey="log(">log₁₀</button>
+          <button class="calc-key sci" data-ckey="^">xʸ</button>
+          <button class="calc-key sci" data-ckey="(">(</button>
+          <button class="calc-key sci" data-ckey=")">)</button>
+          <button class="calc-key sci" data-ckey="fact(">n!</button>
+
+          <button class="calc-key sci" data-ckey="π">π</button>
+          <button class="calc-key sci" data-ckey="e">e</button>
+          <button class="calc-key op" data-cact="clear">C</button>
+          <button class="calc-key op" data-cact="back">⌫</button>
+          <button class="calc-key op" data-ckey="/">÷</button>
+
+          <button class="calc-key" data-ckey="7">7</button>
+          <button class="calc-key" data-ckey="8">8</button>
+          <button class="calc-key" data-ckey="9">9</button>
+          <button class="calc-key op" data-ckey="*">×</button>
+          <button class="calc-key sci" data-cact="ans">ANS</button>
+
+          <button class="calc-key" data-ckey="4">4</button>
+          <button class="calc-key" data-ckey="5">5</button>
+          <button class="calc-key" data-ckey="6">6</button>
+          <button class="calc-key op" data-ckey="-">−</button>
+          <button class="calc-key sci" data-ckey="abs(">|x|</button>
+
+          <button class="calc-key" data-ckey="1">1</button>
+          <button class="calc-key" data-ckey="2">2</button>
+          <button class="calc-key" data-ckey="3">3</button>
+          <button class="calc-key op" data-ckey="+">+</button>
+          <button class="calc-key eq" data-cact="eval" rowspan="2">=</button>
+
+          <button class="calc-key span2" data-ckey="0">0</button>
+          <button class="calc-key" data-ckey=".">.</button>
+          <button class="calc-key sci" data-cact="inv">1/x</button>
+        </div>
+        <div id="calc-history" class="calc-history"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL LEMBAR RUMUS CEPAT (CHEAT SHEET PER MATKUL) -->
+  <div id="quick-formula-modal" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-label="Lembar Rumus Cepat">
+    <div class="modal-backdrop" data-close-modal="quick-formula-modal"></div>
+    <div class="modal-dialog gs-dialog">
+      <div class="modal-header">
+        <h3>📌 Lembar Rumus Cepat per Mata Kuliah</h3>
+        <button class="btn btn-ghost btn-sm" data-close-modal="quick-formula-modal" aria-label="Tutup Lembar Rumus">✕</button>
+      </div>
+      <div class="gs-controls">
+        <div class="gs-input-row">
+          <select id="qf-course-select" name="qf_course_select" aria-label="Pilih Mata Kuliah Lembar Rumus" style="flex:1;min-width:200px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:9px 12px;font-weight:700;"></select>
+          <input type="search" id="qf-search-input" aria-label="Filter bab atau rumus" placeholder="Filter bab / kata kunci rumus..." />
+        </div>
+      </div>
+      <div class="modal-body" id="qf-body"></div>
     </div>
   </div>
 

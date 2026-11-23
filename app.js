@@ -268,7 +268,10 @@ function getCourseTheme(cid) {
   return COURSE_THEMES[cid] || { color: "#B7D3C0", emoji: "📘" };
 }
 
-/* Theme System (Default follows system, saved in localStorage) */
+const APP_VERSION = "v2.4.0 (Pastel Kalem PWA)";
+const CACHE_LABEL = "portal-v8";
+
+/* Theme & Font Size System (saved in localStorage) */
 function getThemePref() {
   return localStorage.getItem("portal_theme_pref") || "system";
 }
@@ -294,6 +297,40 @@ function applyTheme(pref) {
   if (note) {
     const label = pref === "system" ? `Mengikuti sistem (${isDark ? "Pastel Gelap" : "Pastel Terang"})` : pref === "dark" ? "Pastel Gelap" : "Pastel Terang";
     note.textContent = `Mode aktif saat ini: ${label}`;
+  }
+}
+
+function getFontSizePref() {
+  const v = Number(localStorage.getItem("portal_font_size") || 16);
+  return [14, 16, 18, 20].includes(v) ? v : 16;
+}
+
+function applyFontSize(px) {
+  const size = [14, 16, 18, 20].includes(Number(px)) ? Number(px) : 16;
+  localStorage.setItem("portal_font_size", String(size));
+  document.documentElement.style.setProperty("--base-font-size", `${size}px`);
+  document.querySelectorAll("#font-size-choices button").forEach((b) => {
+    b.classList.toggle("selected", Number(b.dataset.fontSize) === size);
+  });
+  const labels = { 14: "Kecil (14px)", 16: "Normal (16px)", 18: "Besar (18px)", 20: "Ekstra (20px)" };
+  const note = document.getElementById("font-size-note");
+  if (note) note.textContent = `Ukuran font saat ini: ${labels[size] || `${size}px`}`;
+}
+
+function updateSettingsVersionInfo() {
+  const verEl = document.getElementById("settings-app-version");
+  const cacheEl = document.getElementById("settings-cache-version");
+  const sizeEl = document.getElementById("settings-storage-size");
+  if (verEl) verEl.textContent = APP_VERSION;
+  if (cacheEl) cacheEl.textContent = CACHE_LABEL;
+  if (sizeEl) {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY) || "";
+      const kb = (new Blob([raw]).size / 1024).toFixed(1);
+      sizeEl.textContent = `${kb} KB tersimpan`;
+    } catch {
+      sizeEl.textContent = "-";
+    }
   }
 }
 
@@ -451,7 +488,7 @@ function initPwaControls() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.ready.then((reg) => {
       const swEl = document.getElementById("settings-sw-status");
-      if (swEl) swEl.textContent = reg.active ? "Aktif (portal-v6 siap offline)" : "Terdaftar";
+      if (swEl) swEl.textContent = reg.active ? `Aktif (${CACHE_LABEL} siap offline)` : "Terdaftar";
     });
   }
 }
@@ -696,6 +733,9 @@ json.dumps(_res, ensure_ascii=False)
 /* Initialization */
 async function init() {
   applyTheme(getThemePref());
+  applyFontSize(getFontSizePref());
+  renderPomodoroUI();
+  updateSettingsVersionInfo();
   if (window.matchMedia) {
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
       if (getThemePref() === "system") applyTheme("system");
@@ -726,6 +766,7 @@ async function init() {
     renderDailyReminderBanner();
     refreshGamifyUI();
     refreshSessionsCount();
+    updateSettingsVersionInfo();
   } catch (err) {
     document.getElementById("course-grid").innerHTML = `<div class="empty-state"><h4>Gagal Memuat Data</h4><p>Pastikan aplikasi dibuka lewat server statis atau GitHub Pages. (${escHtml(err.message)})</p></div>`;
   }
@@ -734,6 +775,9 @@ async function init() {
 /* Navigation between 5 main sections */
 function navigateTo(sectionName, opts = {}) {
   state.activeSection = sectionName;
+  if (sectionName !== "latihan" && document.body.classList.contains("focus-mode")) {
+    setFocusMode(false);
+  }
   document.querySelectorAll(".page-section").forEach((s) => {
     s.classList.toggle("active", s.id === `sec-${sectionName}`);
   });
@@ -771,6 +815,8 @@ function navigateTo(sectionName, opts = {}) {
     } else if (sectionName === "statistik") {
       refreshGamifyUI();
       renderAnalyticsTab();
+    } else if (sectionName === "pengaturan") {
+      updateSettingsVersionInfo();
     }
     if (!opts.skipSave && (sectionName === "belajar" || sectionName === "latihan")) {
       saveLastPosition({ section: sectionName });
@@ -955,10 +1001,11 @@ function bindGlobalEvents() {
       return;
     }
     if (e.key === "Escape") {
-      const gs = document.getElementById("global-search-modal");
-      const sm = document.getElementById("sessions-modal");
-      if (gs && gs.style.display !== "none") { closeGlobalSearchModal(); return; }
-      if (sm && sm.style.display !== "none") { sm.style.display = "none"; return; }
+      for (const id of ["global-search-modal", "sessions-modal", "pomodoro-modal", "calc-modal", "quick-formula-modal"]) {
+        const m = document.getElementById(id);
+        if (m && m.style.display !== "none") { m.style.display = "none"; return; }
+      }
+      if (document.body.classList.contains("focus-mode")) { setFocusMode(false); return; }
     }
     if (!state.activeCourse || state.activeSection !== "latihan" || state.activeLatihanTab !== "quiz") return;
     const tag = ((e.target && e.target.tagName) || "").toLowerCase();
@@ -1099,6 +1146,7 @@ function bindGlobalEvents() {
         renderDashboard();
         renderDailyReminderBanner();
         if (state.activeSection === "statistik") renderAnalyticsTab();
+        updateSettingsVersionInfo();
         const xp = getGamify().xp || 0;
         if (msgEl) msgEl.textContent = `✅ Cadangan berhasil dipulihkan dari ${file.name} (Total XP: ${xp}).`;
       } catch (err) {
@@ -1109,17 +1157,73 @@ function bindGlobalEvents() {
     });
   }
 
+  document.querySelectorAll("#font-size-choices button").forEach((btn) => {
+    btn.addEventListener("click", () => applyFontSize(btn.dataset.fontSize));
+  });
+
+  // Inline confirmation for Reset All Progress
+  const resetBox = document.getElementById("reset-confirm-box");
   document.getElementById("btn-reset-all-progress").addEventListener("click", () => {
-    if (!confirm("Hapus seluruh progres belajar, skor, catatan, bookmark, flashcard, dan XP di browser ini?")) return;
+    if (resetBox) resetBox.style.display = resetBox.style.display === "none" ? "block" : "none";
+  });
+  document.getElementById("btn-confirm-reset-no").addEventListener("click", () => {
+    if (resetBox) resetBox.style.display = "none";
+  });
+  document.getElementById("btn-confirm-reset-yes").addEventListener("click", () => {
     localStorage.removeItem(STORAGE_KEY);
     state.progress = loadProgress();
     touchDailyStreak();
+    if (state.activeCourse) {
+      restoreCourseState(state.activeCourse, { preservePosition: false });
+    }
     refreshGamifyUI();
     refreshSessionsCount();
     renderDashboard();
     renderDailyReminderBanner();
+    renderPomodoroUI();
+    updateSettingsVersionInfo();
+    if (resetBox) resetBox.style.display = "none";
     const msgEl = document.getElementById("backup-status-msg");
-    if (msgEl) msgEl.textContent = "Semua progres lokal direset.";
+    if (msgEl) msgEl.textContent = "✓ Semua progres lokal berhasil direset.";
+  });
+
+  // Focus Mode controls
+  document.getElementById("btn-focus-mode").addEventListener("click", () => setFocusMode(true));
+  document.getElementById("btn-exit-focus-mode").addEventListener("click", () => setFocusMode(false));
+
+  // Pomodoro controls & navigation buttons
+  ["btn-pomo-side", "btn-pomo-top", "btn-pomo-focus"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", openPomodoroModal);
+  });
+  document.getElementById("btn-pomo-toggle").addEventListener("click", togglePomodoroTimer);
+  document.getElementById("btn-pomo-reset").addEventListener("click", resetPomodoroTimer);
+  document.getElementById("btn-pomo-switch").addEventListener("click", () => switchPomodoroPhase());
+  document.getElementById("btn-pomo-phase-focus").addEventListener("click", () => switchPomodoroPhase("focus"));
+  document.getElementById("btn-pomo-phase-break").addEventListener("click", () => switchPomodoroPhase("break"));
+
+  // Scientific Calculator controls & navigation buttons
+  ["btn-calc-side", "btn-calc-top", "btn-calc-focus"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", openCalculatorModal);
+  });
+  document.getElementById("btn-calc-angle").addEventListener("click", toggleCalcAngleMode);
+  document.getElementById("calc-keypad").addEventListener("click", handleCalcKeypadClick);
+
+  // Quick Formula Sheet controls & navigation buttons
+  ["btn-formula-side", "btn-formula-top", "btn-formula-focus"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", openQuickFormulaModal);
+  });
+  document.getElementById("qf-course-select").addEventListener("change", renderQuickFormulaBody);
+  document.getElementById("qf-search-input").addEventListener("input", renderQuickFormulaBody);
+
+  // Generic modal close triggers
+  document.querySelectorAll("[data-close-modal]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const m = document.getElementById(el.dataset.closeModal);
+      if (m) m.style.display = "none";
+    });
   });
 
   // Modals (Sessions & Global Search)
@@ -3295,6 +3399,330 @@ function runGlobalSearch() {
       if (e.key === "Enter") activate();
     });
   });
+}
+
+/* MODE FOKUS */
+function setFocusMode(enabled) {
+  document.body.classList.toggle("focus-mode", !!enabled);
+  if (enabled) {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
+/* POMODORO TIMER 25 / 5 */
+const pomoState = {
+  phase: "focus", // focus (25m) | break (5m)
+  secondsLeft: 25 * 60,
+  running: false,
+  timerHandle: null,
+};
+
+function getPomoDoneToday() {
+  const g = getGamify();
+  const today = getTodayDateKey();
+  return (g.dailyLog[today] && g.dailyLog[today].pomodoro) || 0;
+}
+
+function incrementPomoDoneToday() {
+  const g = getGamify();
+  const today = getTodayDateKey();
+  if (!g.dailyLog[today]) {
+    g.dailyLog[today] = { questions: 0, labs: 0, chapters: 0, flashcards: 0, pomodoro: 0, total: 0 };
+  }
+  g.dailyLog[today].pomodoro = (g.dailyLog[today].pomodoro || 0) + 1;
+  saveProgress();
+}
+
+function formatMMSS(sec) {
+  const m = String(Math.floor(Math.max(0, sec) / 60)).padStart(2, "0");
+  const s = String(Math.max(0, sec) % 60).padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+function playGentleChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.25);
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.46);
+  } catch {
+    // Ignore audio context restrictions silently
+  }
+}
+
+function renderPomodoroUI() {
+  const str = formatMMSS(pomoState.secondsLeft);
+  const total = pomoState.phase === "focus" ? 25 * 60 : 5 * 60;
+  const pct = Math.round(((total - pomoState.secondsLeft) / total) * 100);
+
+  ["pomo-time-display", "pomo-side-badge", "pomo-top-label", "pomo-focus-label"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = str;
+  });
+  const lbl = document.getElementById("pomo-phase-label");
+  if (lbl) lbl.textContent = pomoState.phase === "focus" ? "🎯 Sesi Fokus Belajar (25 Menit)" : "☕ Istirahat Singkat (5 Menit)";
+  const fill = document.getElementById("pomo-progress-fill");
+  if (fill) fill.style.width = `${pct}%`;
+  const toggleBtn = document.getElementById("btn-pomo-toggle");
+  if (toggleBtn) toggleBtn.textContent = pomoState.running ? "⏸ Jeda" : "▶ Mulai";
+
+  const fPill = document.getElementById("btn-pomo-phase-focus");
+  const bPill = document.getElementById("btn-pomo-phase-break");
+  if (fPill) fPill.classList.toggle("active", pomoState.phase === "focus");
+  if (bPill) bPill.classList.toggle("active", pomoState.phase === "break");
+
+  const doneEl = document.getElementById("pomo-done-today");
+  if (doneEl) doneEl.textContent = String(getPomoDoneToday());
+}
+
+function togglePomodoroTimer() {
+  if (pomoState.running) {
+    clearInterval(pomoState.timerHandle);
+    pomoState.timerHandle = null;
+    pomoState.running = false;
+    renderPomodoroUI();
+    return;
+  }
+  pomoState.running = true;
+  renderPomodoroUI();
+  pomoState.timerHandle = setInterval(() => {
+    pomoState.secondsLeft--;
+    if (pomoState.secondsLeft <= 0) {
+      clearInterval(pomoState.timerHandle);
+      pomoState.timerHandle = null;
+      pomoState.running = false;
+      playGentleChime();
+      if (pomoState.phase === "focus") {
+        incrementPomoDoneToday();
+        awardXp(`pomo_${getTodayDateKey()}_${getPomoDoneToday()}`, 10);
+        refreshGamifyUI();
+        switchPomodoroPhase("break");
+      } else {
+        switchPomodoroPhase("focus");
+      }
+      return;
+    }
+    renderPomodoroUI();
+  }, 1000);
+}
+
+function resetPomodoroTimer() {
+  if (pomoState.timerHandle) clearInterval(pomoState.timerHandle);
+  pomoState.timerHandle = null;
+  pomoState.running = false;
+  pomoState.secondsLeft = pomoState.phase === "focus" ? 25 * 60 : 5 * 60;
+  renderPomodoroUI();
+}
+
+function switchPomodoroPhase(explicitPhase = null) {
+  if (pomoState.timerHandle) clearInterval(pomoState.timerHandle);
+  pomoState.timerHandle = null;
+  pomoState.running = false;
+  pomoState.phase = explicitPhase || (pomoState.phase === "focus" ? "break" : "focus");
+  pomoState.secondsLeft = pomoState.phase === "focus" ? 25 * 60 : 5 * 60;
+  renderPomodoroUI();
+}
+
+function openPomodoroModal() {
+  const modal = document.getElementById("pomodoro-modal");
+  if (!modal) return;
+  renderPomodoroUI();
+  modal.style.display = "grid";
+}
+
+/* KALKULATOR ILMIAH SEDERHANA */
+const calcState = {
+  expr: "",
+  lastAns: "0",
+  angleMode: "DEG", // DEG | RAD
+  history: [],
+};
+
+function renderCalculatorScreen() {
+  const exprEl = document.getElementById("calc-expr-display");
+  const resEl = document.getElementById("calc-result-display");
+  const angEl = document.getElementById("btn-calc-angle");
+  const histEl = document.getElementById("calc-history");
+  if (exprEl) exprEl.textContent = calcState.expr || "0";
+  if (angEl) angEl.textContent = calcState.angleMode;
+  if (resEl && !calcState.expr) resEl.textContent = calcState.lastAns || "0";
+  if (histEl) {
+    histEl.innerHTML = calcState.history
+      .map(
+        (h, i) => `
+      <div class="calc-hist-item" data-chidx="${i}">
+        <span>${escHtml(h.expr)}</span>
+        <strong>= ${escHtml(h.res)}</strong>
+      </div>`
+      )
+      .join("");
+    histEl.querySelectorAll(".calc-hist-item").forEach((el) => {
+      el.addEventListener("click", () => {
+        const h = calcState.history[Number(el.dataset.chidx)];
+        if (h) {
+          calcState.expr = h.res;
+          document.getElementById("calc-result-display").textContent = h.res;
+          renderCalculatorScreen();
+        }
+      });
+    });
+  }
+}
+
+function evaluateCalcExpression(raw) {
+  const deg = calcState.angleMode === "DEG";
+  const sin = (x) => Math.sin(deg ? (x * Math.PI) / 180 : x);
+  const cos = (x) => Math.cos(deg ? (x * Math.PI) / 180 : x);
+  const tan = (x) => Math.tan(deg ? (x * Math.PI) / 180 : x);
+  const sqrt = (x) => Math.sqrt(x);
+  const ln = (x) => Math.log(x);
+  const log = (x) => Math.log10(x);
+  const abs = (x) => Math.abs(x);
+  const fact = (n) => {
+    const k = Math.floor(n);
+    if (n < 0 || n !== k || k > 170) throw new Error("Domain n!");
+    let r = 1;
+    for (let i = 2; i <= k; i++) r *= i;
+    return r;
+  };
+
+  let jsExpr = String(raw || "").trim();
+  if (!jsExpr) return 0;
+  jsExpr = jsExpr
+    .replace(/π/g, "Math.PI")
+    .replace(/\be\b/g, "Math.E")
+    .replace(/\^/g, "**");
+
+  // Strict allowlist check: only digits, whitespace, operators, parens, dot, Math.PI, Math.E, and allowed func names
+  const stripped = jsExpr.replace(/Math\.PI|Math\.E|\bsin\b|\bcos\b|\btan\b|\bsqrt\b|\bln\b|\blog\b|\babs\b|\bfact\b/g, "");
+  if (/[^0-9+\-*/().,\s*]/.test(stripped)) {
+    throw new Error("Ekspresi tidak valid");
+  }
+
+  const fn = new Function("sin", "cos", "tan", "sqrt", "ln", "log", "abs", "fact", `return (${jsExpr});`);
+  const val = fn(sin, cos, tan, sqrt, ln, log, abs, fact);
+  if (typeof val !== "number" || !Number.isFinite(val)) {
+    throw new Error("Tidak terdefinisi");
+  }
+  return Number(val.toPrecision(12));
+}
+
+function handleCalcKeypadClick(e) {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  const key = btn.dataset.ckey;
+  const act = btn.dataset.cact;
+  const resEl = document.getElementById("calc-result-display");
+
+  if (key !== undefined) {
+    calcState.expr += key;
+    renderCalculatorScreen();
+    return;
+  }
+  if (act === "clear") {
+    calcState.expr = "";
+    if (resEl) resEl.textContent = "0";
+    renderCalculatorScreen();
+  } else if (act === "back") {
+    calcState.expr = calcState.expr.slice(0, -1);
+    renderCalculatorScreen();
+  } else if (act === "ans") {
+    calcState.expr += calcState.lastAns;
+    renderCalculatorScreen();
+  } else if (act === "inv") {
+    if (calcState.expr) calcState.expr = `1/(${calcState.expr})`;
+    else calcState.expr = `1/(${calcState.lastAns})`;
+    renderCalculatorScreen();
+  } else if (act === "eval") {
+    try {
+      const val = evaluateCalcExpression(calcState.expr || calcState.lastAns);
+      const out = String(val);
+      if (resEl) resEl.textContent = out;
+      if (calcState.expr) {
+        calcState.history.unshift({ expr: calcState.expr, res: out });
+        if (calcState.history.length > 6) calcState.history.length = 6;
+      }
+      calcState.lastAns = out;
+      calcState.expr = "";
+      renderCalculatorScreen();
+    } catch (err) {
+      if (resEl) resEl.textContent = err.message || "Error";
+    }
+  }
+}
+
+function toggleCalcAngleMode() {
+  calcState.angleMode = calcState.angleMode === "DEG" ? "RAD" : "DEG";
+  renderCalculatorScreen();
+}
+
+function openCalculatorModal() {
+  const modal = document.getElementById("calc-modal");
+  if (!modal) return;
+  renderCalculatorScreen();
+  modal.style.display = "grid";
+}
+
+/* LEMBAR RUMUS CEPAT (CHEAT SHEET PER MATKUL DARI HALAMAN MANA PUN) */
+function openQuickFormulaModal() {
+  const modal = document.getElementById("quick-formula-modal");
+  const sel = document.getElementById("qf-course-select");
+  if (!modal || !sel) return;
+  sel.innerHTML = state.index
+    .map((x) => `<option value="${x.id}">${getCourseTheme(x.id).emoji} Sem ${x.semester} — ${escHtml(x.title)} (${escHtml(x.code)})</option>`)
+    .join("");
+  if (state.activeCourse && sel.querySelector(`option[value="${state.activeCourse.id}"]`)) {
+    sel.value = state.activeCourse.id;
+  }
+  const searchInp = document.getElementById("qf-search-input");
+  if (searchInp) searchInp.value = "";
+  renderQuickFormulaBody();
+  modal.style.display = "grid";
+}
+
+function renderQuickFormulaBody() {
+  const sel = document.getElementById("qf-course-select");
+  const body = document.getElementById("qf-body");
+  if (!sel || !body) return;
+  const course = state.coursesCache[sel.value];
+  if (!course) {
+    body.innerHTML = `<div class="empty-state"><p>Data mata kuliah belum dimuat.</p></div>`;
+    return;
+  }
+  const q = (document.getElementById("qf-search-input")?.value || "").trim().toLowerCase();
+  const chapters = (course.chapters || []).filter((ch) => {
+    if (!q) return true;
+    const text = `${ch.bab} ${ch.title} ${(ch.formulas_or_syntax || []).join(" ")} ${(ch.summary_points || []).join(" ")} ${(ch.common_traps || []).join(" ")}`.toLowerCase();
+    return text.includes(q);
+  });
+  if (!chapters.length) {
+    body.innerHTML = `<div class="empty-state"><h4>Rumus tidak ditemukan</h4><p>Coba kata kunci lain atau pilih mata kuliah lain.</p></div>`;
+    return;
+  }
+  body.innerHTML = `<div class="cheatsheet-grid">${chapters
+    .map(
+      (ch) => `
+    <div class="cheat-card">
+      <span class="prio-badge ${prioClass(ch.uas_priority)}">${escHtml(ch.bab)} • UAS: ${escHtml(ch.uas_priority)}</span>
+      <h4 style="margin:6px 0 10px;">${escHtml(ch.title)}</h4>
+      ${(ch.formulas_or_syntax || []).length
+        ? `<strong style="font-size:13px;">Rumus / Sintaks Kunci:</strong><ul style="font-size:14px;">${ch.formulas_or_syntax.map((f) => `<li>${renderInlineMd(f)}</li>`).join("")}</ul>`
+        : `<strong style="font-size:13px;">Poin Inti:</strong><ul style="font-size:14px;">${(ch.summary_points || []).map((p) => `<li>${renderInlineMd(p)}</li>`).join("")}</ul>`}
+      ${(ch.common_traps || []).length ? `<strong style="font-size:13px;">Jebakan UAS:</strong><ul style="font-size:14px;">${ch.common_traps.map((t) => `<li>${renderInlineMd(t)}</li>`).join("")}</ul>` : ""}
+    </div>`
+    )
+    .join("")}</div>`;
+  applyMath(body);
 }
 
 document.addEventListener("DOMContentLoaded", () => {

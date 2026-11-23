@@ -74,16 +74,27 @@
       - Node CLI mengonfirmasi file ekspor `cadangan_progres_portal_2026-11-23.json` berisi `app: portal-belajar-sains-data`, `schema_version: 2`, `theme: light`, `xp: 90`, `dailyTarget: 20`, `sessions: 1`, `reports: 2`, dan 13 mata kuliah.
       - Chrome QA mengonfirmasi `Aktif (portal-v6 siap offline)`, `0` error konsol & `0` issue Chromium, banner *"Belum belajar hari ini"* tampil saat aktivitas `0` lalu menghilang otomatis begitu 1 aktivitas dilakukan, 2 grafik SVG kustom, target harian `20/hari` persisten, topik terlemah, urutan rekomendasi `#1`–`#8` + tombol `🔁 Remedial Bab Ini`, riwayat sesi, pratinjau & unduhan `.md` berisi urutan topik/bab belum dipahami, ekspor JSON berhasil, serta tampilan Mobile `390x844` bebas overflow halaman. *(Catatan: simulasi unggah file via `upload_file` Chrome DevTools MCP ke `#input-import-backup-json` ditolak oleh kebijakan workspace root server MCP, sehingga alur unggah dialog file browser belum dijalankan otomatis di Chrome).*
 
+11. **Penambahan 5 Fitur Alat Belajar, Mode Fokus & Pengaturan Lengkap (`portal-v8`)**:
+    - **Pomodoro Timer 25/5 Menit (`#pomodoro-modal`)**: Dapat dibuka dari sidebar, topbar, maupun bilah Mode Fokus; mendukung fase **Fokus 25m** dan **Istirahat 5m**, **Mulai / Jeda**, **Reset**, **Ganti Fase**, badge hitung mundur langsung di navigasi, bunyi lembut Web Audio saat selesai, serta pencatatan jumlah sesi fokus harian di `localStorage`.
+    - **Kalkulator Ilmiah Sederhana (`#calc-modal`)**: Keypad grid 5 kolom Pastel Kalem dengan operasi dasar (`+`, `−`, `×`, `÷`, `^`, `( )`, `1/x`), fungsi ilmiah (`sin`, `cos`, `tan`, `√`, `ln`, `log₁₀`, `n!`, `|x|`, `π`, `e`, `ANS`), pengalih sudut `DEG`/`RAD`, evaluator ekspresi aman tanpa library eksternal, serta 6 riwayat hitungan yang dapat diklik ulang.
+    - **Lembar Rumus Cepat per Matkul (`#quick-formula-modal`)**: Tombol **📌 Rumus** di navigasi membuka ringkasan rumus/sintaks & jebakan UAS lintas seluruh 13 mata kuliah dari halaman mana pun tanpa meninggalkan soal/halaman yang sedang dikerjakan, lengkap dengan pemilih matkul, filter kata kunci, dan rendering **KaTeX**.
+    - **Mode Fokus (`body.focus-mode`)**: Tombol **🧘 Mode Fokus** di `Latihan → Simulasi Soal` menyembunyikan sidebar, topbar, *bottom navigation*, filter kontrol soal, dekorasi SVG hero, pengingat harian, dan pintasan papan ketik agar bebas gangguan, menyisakan bilah ringkas `#focus-mode-bar` (akses cepat Pomodoro/Kalkulator/Rumus & **✕ Keluar Mode Fokus**, atau `Escape`).
+    - **Pengaturan Lengkap**: Pilihan **Ukuran Font** (`14px`, `16px`, `18px`, `20px` via `--base-font-size` di `localStorage`), **Tema** (`system`/`light`/`dark`), **Reset Semua Progres dengan konfirmasi inline** (`#reset-confirm-box`), serta kartu **Tentang & Versi Aplikasi** (`v2.4.0 (Pastel Kalem PWA)`, cache `portal-v8`, cakupan materi, dan ukuran penyimpanan `localStorage`).
+    - **Service Worker `portal-v8`**: Versi cache [sw.js](sw.js) dinaikkan ke `portal-v8` / `portal-runtime-v8` (awal `portal-v7`, lalu `portal-v8` setelah perbaikan `.topbar` mobile 2 baris) tanpa mengubah folder `data/`.
+    - **Hasil Uji (`http://localhost:8000` Desktop `1280x800` & Mobile `390x844`)**:
+      - `node --check app.js`, `node --check sw.js`, dan `verify_pwa.py` (21 target precache & `manifest.json`) lulus; `git status -s -- data/` bersih.
+      - Chrome QA mengonfirmasi `Aktif (portal-v8 siap offline)` & `Cache Service Worker: portal-v8`, `0` error konsol & `0` issue Chromium, countdown Pomodoro 25/5 berjalan *live* di navigasi + tukar fase, Kalkulator ilmiah (`sqrt(144)=12`, `sin(30)=0.5`, `ANS+2=2.5`, riwayat), Lembar Rumus Cepat dari halaman `Latihan` dengan filter `"turunan"` KaTeX, Mode Fokus menyembunyikan seluruh navigasi & dekorasi dan kembali normal saat keluar, persistensi font `Besar (18px)` setelah reload, konfirmasi inline reset progres (`Batal` & `Ya, Hapus Semua`), serta tata letak `.topbar` 2 baris pada Mobile `390x844` tanpa tumpang tindih atau *horizontal overflow*.
+
 ---
 
 ### Hal yang Tidak Dapat Berjalan Tanpa Server / Keterbatasan Mode Statis
 - **Pustaka Python di luar `stdlib + numpy + pandas`**: Sebanyak 96 lab yang mengimpor `scipy`, `scikit-learn`, atau `matplotlib` tidak dieksekusi di browser dan disajikan sebagai contoh baca-saja beserta output yang diharapkan.
 - **Penyimpanan ke folder disk server secara langsung**: Digantikan oleh unduhan browser (`Blob` + `<a download>`) dan riwayat `localStorage`.
 - **Sinkronisasi lintas perangkat**: Karena tanpa database/server, data `localStorage` hanya tersimpan di browser dan perangkat yang digunakan saat itu; namun kini pengguna dapat **mengekspor & mengimpor cadangan `.json`** dari menu **Pengaturan** untuk memindahkan progres antar perangkat.
-- **Akses Offline Penuh Sebelum Kunjungan Pertama**: Aset lokal (`index.html`, `styles.css`, `app.js`, `manifest.json`, ikon, dan seluruh `data/`) di-*precache* oleh `sw.js`, sedangkan CDN (KaTeX, Marked.js, Pyodide, Google Fonts) di-*cache* ke `portal-runtime-v6` setelah pertama kali dimuat.
+- **Akses Offline Penuh Sebelum Kunjungan Pertama**: Aset lokal (`index.html`, `styles.css`, `app.js`, `manifest.json`, ikon, dan seluruh `data/`) di-*precache* oleh `sw.js`, sedangkan CDN (KaTeX, Marked.js, Pyodide, Google Fonts) di-*cache* ke `portal-runtime-v8` setelah pertama kali dimuat.
 
 ---
 
 ### Langkah Berikutnya
-1. Commit dan push pembaruan fitur analitik, rekomendasi, cadangan JSON, pengingat harian, dan `portal-v6` ke repositori GitHub `https://github.com/channotfound-exe/portal-belajar.git` branch `main` agar live di GitHub Pages.
+1. Commit dan push pembaruan tema Pastel Kalem + seluruh fitur (`portal-v8`) ke repositori GitHub `https://github.com/channotfound-exe/portal-belajar.git` branch `main` agar live di GitHub Pages.
 2. *(Opsional)* Uji pilih file cadangan `.json` lewat dialog file browser langsung pada menu **Pengaturan → Impor Cadangan (.json)**.
