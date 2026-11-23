@@ -363,6 +363,11 @@ pre.readonly-code {
   font-family: 'JetBrains Mono', monospace;
 }
 .save-status { font-size: 13px; margin-bottom: 8px; color: var(--accent); font-weight: 600; }
+.offline-pill {
+  background: rgba(245,158,11,0.18); color: #fcd34d; border: 1px solid rgba(245,158,11,0.45);
+  padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
+}
+body.theme-light .offline-pill { color: #b45309; }
 .muted { color: var(--text-muted); font-size: 13px; }
 .loading-box { padding: 24px; text-align: center; color: var(--text-muted); }
 

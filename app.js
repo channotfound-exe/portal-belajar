@@ -27,6 +27,41 @@ const state = {
 let pyodideInstance = null;
 let pyodideInitPromise = null;
 const loadedPyodidePackages = new Set();
+let deferredInstallPrompt = null;
+
+function initPwaControls() {
+  const offlineEl = document.getElementById("offline-indicator");
+  const installBtn = document.getElementById("btn-install-pwa");
+
+  const syncOnlineStatus = () => {
+    if (!offlineEl) return;
+    offlineEl.style.display = navigator.onLine ? "none" : "inline-flex";
+  };
+  syncOnlineStatus();
+  window.addEventListener("online", syncOnlineStatus);
+  window.addEventListener("offline", syncOnlineStatus);
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if (installBtn) installBtn.style.display = "inline-flex";
+  });
+
+  if (installBtn) {
+    installBtn.addEventListener("click", async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      installBtn.style.display = "none";
+    });
+  }
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    if (installBtn) installBtn.style.display = "none";
+  });
+}
 
 function loadProgress() {
   try {
@@ -1554,4 +1589,7 @@ function openSessionsModal() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("DOMContentLoaded", () => {
+  initPwaControls();
+  init();
+});
