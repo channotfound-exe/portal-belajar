@@ -3,333 +3,430 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0b1020" />
-  <title>Portal Belajar Sains Data — Modul, Simulasi UAS & Live Coding</title>
+  <meta name="theme-color" id="meta-theme-color" content="#FAF6EF" />
+  <title>Portal Belajar Sains Data — Pastel Kalem</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="icon" type="image/png" href="icons/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Nunito:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@14.1.2/marked.min.js"></script>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="theme-dark">
-  <div class="app-shell">
-    <!-- Top Bar -->
-    <header class="topbar">
-      <div class="topbar-left">
-        <button id="btn-home" class="brand-btn" title="Kembali ke Dashboard">
-          <span class="brand-badge">DS</span>
-          <div>
-            <div class="brand-title">Portal Belajar Sains Data</div>
-            <div class="brand-sub">Situs Statis • 150 Soal/MK (3 Tahap) • Live Coding Pyodide • Ekspor MD</div>
-          </div>
+<body>
+  <canvas id="confetti-canvas" class="confetti-canvas" aria-hidden="true"></canvas>
+
+  <div class="app-layout">
+    <!-- DESKTOP SIDEBAR -->
+    <aside class="app-sidebar" aria-label="Navigasi Utama">
+      <div class="sidebar-brand" id="btn-brand-home" role="button" tabindex="0">
+        <div class="brand-badge-pastel" aria-hidden="true">SD</div>
+        <div>
+          <div class="brand-title">Portal Belajar</div>
+          <div class="brand-sub">Sains Data • PWA</div>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <button class="nav-item active" data-nav="beranda">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg>
+          <span>Beranda</span>
         </button>
-      </div>
-      <div class="topbar-center" id="active-course-breadcrumb" style="display:none;">
-        <span class="crumb-pill" id="crumb-sem"></span>
-        <span class="crumb-sep">›</span>
-        <span class="crumb-title" id="crumb-title"></span>
-      </div>
-      <div class="topbar-right">
-        <span id="offline-indicator" class="offline-pill" style="display:none;">📴 Mode Offline</span>
-        <button id="btn-install-pwa" class="btn btn-primary" style="display:none;">📲 Pasang Aplikasi</button>
-        <button id="btn-resume-last" class="btn btn-accent" style="display:none;">▶ Lanjutkan Terakhir</button>
-        <button id="btn-sessions-modal" class="btn btn-ghost" title="Riwayat Laporan Sesi Tersimpan di Browser">
-          <span>📄 Riwayat Sesi MD</span>
-          <span class="badge-count" id="session-count-badge">0</span>
+        <button class="nav-item" data-nav="belajar">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          <span>Belajar</span>
         </button>
-        <button id="btn-theme-toggle" class="btn btn-ghost" title="Ganti Tema Gelap/Terang">🌓 Tema</button>
+        <button class="nav-item" data-nav="latihan">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span>Latihan</span>
+        </button>
+        <button class="nav-item" data-nav="statistik">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+          <span>Statistik</span>
+        </button>
+        <button class="nav-item" data-nav="pengaturan">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.79 1 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Pengaturan</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-gamify-card">
+        <div class="sg-row"><span>🔥 Streak</span><strong id="side-streak">1 Hari</strong></div>
+        <div class="sg-row"><span>✨ Total XP</span><strong id="side-xp">0 XP</strong></div>
+        <div class="sg-row"><span>🏅 Lencana</span><strong id="side-badges">0 / 6</strong></div>
       </div>
-    </header>
 
-    <!-- Main Container -->
-    <main class="main-container">
-      <!-- VIEW 1: DASHBOARD -->
-      <section id="view-dashboard" class="view active">
-        <div class="hero-card">
-          <div>
-            <span class="hero-tag">Program Studi Sains Data — Persiapan UAS Terpadu</span>
-            <h1>Belajar Efisien, Latihan Terarah, &amp; Diagnostik Otomatis</h1>
-            <p>
-              Pilih mata kuliah di bawah untuk membaca modul ringkas bernilai UAS tinggi, mempelajari topik tambahan yang tidak lengkap di slide, mengerjakan <strong>150 soal (Tahap 1–3) urut per bab</strong> dengan koreksi seketika, berlatih <strong>50 soal praktek / Live Coding Python (Pyodide) per matkul</strong>, serta mengunduh hasil evaluasi menjadi file <code>.md</code>. Seluruh progres tersimpan otomatis di browser Anda.
-            </p>
+      <div class="sidebar-active-box" id="sidebar-active-course" style="display:none;">
+        <div class="muted-label">Matkul Aktif</div>
+        <div id="side-course-name" class="side-course-name"></div>
+      </div>
+    </aside>
+
+    <!-- CONTENT AREA -->
+    <div class="app-main-wrap">
+      <!-- TOP BAR -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="mobile-brand" id="mobile-brand-btn">
+            <span class="brand-badge-pastel sm">SD</span>
+            <span class="brand-title">Portal Belajar</span>
           </div>
-          <div class="hero-stats" id="global-stats">
-            <div class="stat-box">
-              <div class="stat-num" id="stat-total-courses">13</div>
-              <div class="stat-label">Mata Kuliah</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-num" id="stat-total-questions">1950</div>
-              <div class="stat-label">Total Soal (3 Tahap)</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-num" id="stat-total-labs">650</div>
-              <div class="stat-label">Lab Praktek</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-num" id="stat-answered-overall">0%</div>
-              <div class="stat-label">Progres Anda</div>
-            </div>
+          <div class="active-course-pill" id="topbar-course-pill" style="display:none;">
+            <span id="crumb-emoji"></span>
+            <span id="crumb-title" class="crumb-title"></span>
+            <span class="pill-sem" id="crumb-sem"></span>
           </div>
         </div>
-
-        <div class="toolbar">
-          <div class="filter-pills">
-            <button class="pill active" data-sem="all">Semua Semester (13)</button>
-            <button class="pill" data-sem="1">Semester 1 (6)</button>
-            <button class="pill" data-sem="3">Semester 3 (7)</button>
-          </div>
-          <div class="search-wrap">
-            <input type="search" id="course-search" aria-label="Cari mata kuliah atau kode MK" placeholder="Cari mata kuliah atau kode MK..." />
-          </div>
+        <div class="topbar-right">
+          <span id="offline-indicator" class="offline-pill" style="display:none;">📴 Mode Offline</span>
+          <button id="btn-install-pwa" class="btn btn-primary btn-sm" style="display:none;">
+            <svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Pasang Aplikasi</span>
+          </button>
+          <button id="btn-sessions-modal" class="btn btn-ghost btn-sm" title="Riwayat Laporan Sesi MD">
+            <svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span class="hide-xs">Riwayat MD</span>
+            <span class="badge-count" id="session-count-badge">0</span>
+          </button>
+          <button id="btn-theme-toggle" class="btn btn-ghost btn-sm" title="Ganti Tema Pastel Terang/Gelap" aria-label="Ganti Tema">
+            <span id="theme-toggle-icon">🌙</span>
+            <span class="hide-xs" id="theme-toggle-label">Tema</span>
+          </button>
         </div>
+      </header>
 
-        <div id="course-grid" class="course-grid">
-          <div class="loading-box">Memuat daftar mata kuliah...</div>
-        </div>
-      </section>
-
-      <!-- VIEW 2: COURSE WORKSPACE -->
-      <section id="view-course" class="view">
-        <div class="course-header-bar">
-          <div class="course-header-info">
-            <div class="course-badges">
-              <span class="tag tag-sem" id="ch-sem"></span>
-              <span class="tag tag-code" id="ch-code"></span>
-              <span class="tag tag-credits" id="ch-credits"></span>
-            </div>
-            <h2 id="ch-title"></h2>
-            <p id="ch-desc"></p>
-          </div>
-          <div class="course-quick-metrics">
-            <div class="mini-metric">
-              <span class="mini-label">Penguasaan Bab</span>
-              <strong id="ch-mastery">0 / 0</strong>
-            </div>
-            <div class="mini-metric">
-              <span class="mini-label">Akurasi Soal</span>
-              <strong id="ch-accuracy">-</strong>
-            </div>
-            <div class="mini-metric">
-              <span class="mini-label">Lab Selesai</span>
-              <strong id="ch-labs-done">0 / 0</strong>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tabs -->
-        <nav class="workspace-tabs">
-          <button class="tab-btn active" data-tab="modul">📖 Modul Baca Efisien</button>
-          <button class="tab-btn" data-tab="uas-gaps">🎯 Tambahan Potensial UAS <span class="tab-badge" id="tab-badge-gaps">0</span></button>
-          <button class="tab-btn" data-tab="cheatsheet">📌 Cheat Sheet Rumus</button>
-          <button class="tab-btn" data-tab="quiz">📝 Simulasi Soal <span class="tab-badge" id="tab-badge-quiz">150</span></button>
-          <button class="tab-btn" data-tab="flashcard">⚡ Flashcard Cepat</button>
-          <button class="tab-btn" data-tab="practice">💻 Lab Praktek &amp; Live Coding <span class="tab-badge" id="tab-badge-labs">50</span></button>
-          <button class="tab-btn" data-tab="analytics">📊 Analitik &amp; Ekspor Sesi MD</button>
-        </nav>
-
-        <!-- TAB 1: MODUL BACA -->
-        <div id="tab-modul" class="tab-panel active">
-          <div class="modul-layout">
-            <aside class="chapter-sidebar">
-              <div class="sidebar-head">
-                <h3>Daftar Bab / Sesi</h3>
-                <input type="search" id="modul-search" aria-label="Cari topik di modul" placeholder="Cari topik di modul..." />
+      <main class="main-container">
+        <!-- SECTION 1: BERANDA -->
+        <section id="sec-beranda" class="page-section active">
+          <div class="hero-pastel">
+            <!-- Decorative SVG Blob & Wave -->
+            <svg class="hero-deco" viewBox="0 0 600 220" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M420,-20 C510,10 590,70 570,150 C550,220 440,210 380,170 C310,120 330,-40 420,-20 Z" fill="var(--lavender)" opacity="0.45"/>
+              <path d="M510,90 C570,110 610,180 560,225 C500,260 420,210 445,150 C460,110 475,80 510,90 Z" fill="var(--peach)" opacity="0.5"/>
+              <path d="M0,185 Q150,140 310,185 T600,170 L600,220 L0,220 Z" fill="var(--sage)" opacity="0.35"/>
+            </svg>
+            <div class="hero-content">
+              <span class="hero-chip">✨ Program Studi Sains Data • Persiapan UAS</span>
+              <h1>Belajar Tenang, Fokus &amp; Terarah</h1>
+              <p>Baca modul ringkas bernilai UAS tinggi, berlatih <strong>150 soal per matkul (Tahap 1–3)</strong> dengan koreksi lembut seketika, serta jalankan <strong>Live Coding Pyodide</strong> langsung di browser.</p>
+              <div class="hero-actions">
+                <button id="btn-resume-last" class="btn btn-primary" style="display:none;">▶ Lanjutkan Belajar</button>
+                <div class="gamify-pills">
+                  <span class="g-pill g-peach">🔥 Streak <strong id="hero-streak">1</strong> hari</span>
+                  <span class="g-pill g-lavender">✨ <strong id="hero-xp">0</strong> XP</span>
+                  <span class="g-pill g-sage">🏅 <strong id="hero-badges">0/6</strong> Lencana</span>
+                </div>
               </div>
-              <div id="chapter-list" class="chapter-list"></div>
-            </aside>
-            <article class="chapter-content-card" id="chapter-detail">
-              <div class="loading-box">Pilih bab di sebelah kiri untuk mulai membaca.</div>
-            </article>
-          </div>
-        </div>
-
-        <!-- TAB 2: TAMBAHAN POTENSIAL UAS -->
-        <div id="tab-uas-gaps" class="tab-panel">
-          <div class="panel-intro">
-            <h3>Materi Potensial UAS yang Kurang Jelas / Tidak Tercantum di Slide</h3>
-            <p>Bagian ini merangkum materi dari Daftar Isi Modul resmi (BMP) serta rumus/konsep penting yang pada file slide asli berupa gambar tidak terekstrak, terlewat, atau belum dijabarkan rinci.</p>
-          </div>
-          <div id="uas-gaps-list" class="gaps-grid"></div>
-        </div>
-
-        <!-- TAB 2B: CHEAT SHEET -->
-        <div id="tab-cheatsheet" class="tab-panel">
-          <div class="panel-intro" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-            <div>
-              <h3>Cheat Sheet Satu Halaman — Poin Inti, Rumus &amp; Jebakan UAS</h3>
-              <p>Ringkasan cepat seluruh bab untuk review 10 menit sebelum ujian.</p>
             </div>
-            <button id="btn-print-cheatsheet" class="btn btn-ghost">🖨 Cetak / Simpan PDF</button>
-          </div>
-          <div id="cheatsheet-grid" class="cheatsheet-grid"></div>
-        </div>
-
-        <!-- TAB 3: SIMULASI SOAL -->
-        <div id="tab-quiz" class="tab-panel">
-          <div class="quiz-controls-card">
-            <div class="quiz-filters">
-              <label>
-                Tahap:
-                <select id="quiz-filter-stage">
-                  <option value="1">Tahap 1 (Soal 1–50)</option>
-                </select>
-              </label>
-              <label>
-                Bab / Sesi:
-                <select id="quiz-filter-bab"></select>
-              </label>
-              <label>
-                Prioritas UAS:
-                <select id="quiz-filter-priority">
-                  <option value="all">Semua Prioritas</option>
-                  <option value="Sangat Tinggi">Sangat Tinggi</option>
-                  <option value="Tinggi">Tinggi</option>
-                  <option value="Sedang">Sedang</option>
-                </select>
-              </label>
-              <label>
-                Status:
-                <select id="quiz-filter-status">
-                  <option value="all">Semua Soal</option>
-                  <option value="unanswered">Belum Dijawab</option>
-                  <option value="wrong">Hanya yang Salah (Remedial)</option>
-                  <option value="flagged">Ditandai Sulit</option>
-                </select>
-              </label>
-              <label>
-                Mode:
-                <select id="quiz-mode">
-                  <option value="instant">Latihan (Koreksi Langsung)</option>
-                  <option value="exam">Simulasi Ujian (Timer 60m, Koreksi di Akhir)</option>
-                </select>
-              </label>
-            </div>
-            <div class="quiz-actions-top">
-              <span id="quiz-live-score" class="score-pill">Skor: 0/0</span>
-              <div id="exam-timer" class="timer-pill" style="display:none;">⏱️ 60:00</div>
-              <button id="btn-start-exam" class="btn btn-primary" style="display:none;">Mulai Ujian</button>
-              <button id="btn-focus-uas" class="btn btn-ghost" title="Filter hanya prioritas UAS Sangat Tinggi">🎯 Fokus UAS</button>
-              <button id="btn-reset-quiz" class="btn btn-ghost">↺ Reset</button>
+            <div class="hero-stats">
+              <div class="stat-tile s-sage"><div class="stat-num" id="stat-total-courses">13</div><div class="stat-lbl">Mata Kuliah</div></div>
+              <div class="stat-tile s-lav"><div class="stat-num" id="stat-total-questions">1950</div><div class="stat-lbl">Bank Soal</div></div>
+              <div class="stat-tile s-peach"><div class="stat-num" id="stat-total-labs">650</div><div class="stat-lbl">Lab Praktek</div></div>
+              <div class="stat-tile s-blue"><div class="stat-num" id="stat-answered-overall">0%</div><div class="stat-lbl">Progres Soal</div></div>
             </div>
           </div>
 
-          <div class="quiz-workspace">
-            <div class="quiz-main">
+          <div class="toolbar">
+            <div class="filter-pills">
+              <button class="pill active" data-sem="all">Semua (13)</button>
+              <button class="pill" data-sem="1">Semester 1 (6)</button>
+              <button class="pill" data-sem="3">Semester 3 (7)</button>
+            </div>
+            <div class="search-wrap">
+              <svg class="ico sm search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="search" id="course-search" aria-label="Cari mata kuliah atau kode MK" placeholder="Cari mata kuliah atau kode MK..." />
+            </div>
+          </div>
+
+          <div id="course-grid" class="course-grid">
+            <!-- Skeleton loaders -->
+            <div class="skeleton-card"><div class="skel skel-sm"></div><div class="skel skel-lg"></div><div class="skel skel-md"></div></div>
+            <div class="skeleton-card"><div class="skel skel-sm"></div><div class="skel skel-lg"></div><div class="skel skel-md"></div></div>
+            <div class="skeleton-card"><div class="skel skel-sm"></div><div class="skel skel-lg"></div><div class="skel skel-md"></div></div>
+          </div>
+        </section>
+
+        <!-- SECTION 2: BELAJAR (MODUL + UAS GAPS + CHEAT SHEET + FLASHCARD) -->
+        <section id="sec-belajar" class="page-section">
+          <div class="course-switcher-bar" id="belajar-course-bar"></div>
+          <div class="subtab-bar">
+            <button class="subtab-btn active" data-subtab="modul">📖 Modul Baca</button>
+            <button class="subtab-btn" data-subtab="uas-gaps">🎯 Tambahan UAS <span class="tab-badge" id="tab-badge-gaps">0</span></button>
+            <button class="subtab-btn" data-subtab="cheatsheet">📌 Cheat Sheet</button>
+            <button class="subtab-btn" data-subtab="flashcard">⚡ Flashcard</button>
+          </div>
+
+          <!-- Subtab: Modul Baca -->
+          <div id="subtab-modul" class="subtab-panel active">
+            <div class="modul-layout">
+              <aside class="chapter-sidebar">
+                <div class="sidebar-head">
+                  <h3>Daftar Bab / Sesi</h3>
+                  <input type="search" id="modul-search" aria-label="Cari topik di modul" placeholder="Cari topik di modul..." />
+                </div>
+                <div id="chapter-list" class="chapter-list"></div>
+              </aside>
+              <article class="chapter-content-card" id="chapter-detail">
+                <div class="loading-box">Memuat bab...</div>
+              </article>
+            </div>
+          </div>
+
+          <!-- Subtab: Tambahan UAS -->
+          <div id="subtab-uas-gaps" class="subtab-panel">
+            <div class="panel-intro">
+              <h3>Materi Potensial UAS yang Kurang Jelas / Tidak Tercantum di Slide</h3>
+              <p>Merangkum materi dari Daftar Isi Modul resmi (BMP) serta rumus atau konsep penting yang pada slide asli hanya berupa gambar atau terlewat.</p>
+            </div>
+            <div id="uas-gaps-list" class="gaps-grid"></div>
+          </div>
+
+          <!-- Subtab: Cheat Sheet -->
+          <div id="subtab-cheatsheet" class="subtab-panel">
+            <div class="panel-intro row-between">
+              <div>
+                <h3>Cheat Sheet Satu Halaman — Poin Inti &amp; Rumus</h3>
+                <p>Ringkasan cepat seluruh bab untuk review 10 menit sebelum ujian.</p>
+              </div>
+              <button id="btn-print-cheatsheet" class="btn btn-ghost">🖨 Cetak / PDF</button>
+            </div>
+            <div id="cheatsheet-grid" class="cheatsheet-grid"></div>
+          </div>
+
+          <!-- Subtab: Flashcard -->
+          <div id="subtab-flashcard" class="subtab-panel">
+            <div class="flashcard-controls">
+              <label>Pilih Bab: <select id="fc-bab-filter"></select></label>
+              <button id="btn-fc-shuffle" class="btn btn-ghost">🔀 Acak Kartu</button>
+            </div>
+            <div class="flashcard-stage">
+              <div id="flashcard-box" class="flashcard" tabindex="0" role="button" aria-label="Klik untuk membalik kartu">
+                <div class="flashcard-inner">
+                  <div class="flashcard-front">
+                    <span class="fc-tag" id="fc-tag"></span>
+                    <h3 id="fc-front-title"></h3>
+                    <div id="fc-front-body"></div>
+                    <div class="fc-hint">Ketuk kartu untuk melihat rumus &amp; jebakan UAS ↻</div>
+                  </div>
+                  <div class="flashcard-back">
+                    <span class="fc-tag">Ringkasan Kunci &amp; Jebakan UAS</span>
+                    <div id="fc-back-body"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="fc-nav">
+                <button id="btn-fc-prev" class="btn btn-ghost">← Sebelumnya</button>
+                <span id="fc-counter">1 / 1</span>
+                <button id="btn-fc-next" class="btn btn-primary">Berikutnya →</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 3: LATIHAN (SIMULASI SOAL + LAB PRAKTEK) -->
+        <section id="sec-latihan" class="page-section">
+          <div class="course-switcher-bar" id="latihan-course-bar"></div>
+          <div class="subtab-bar">
+            <button class="subtab-btn active" data-subtab="quiz">📝 Simulasi Soal <span class="tab-badge" id="tab-badge-quiz">150</span></button>
+            <button class="subtab-btn" data-subtab="practice">💻 Lab Praktek &amp; Pyodide <span class="tab-badge" id="tab-badge-labs">50</span></button>
+          </div>
+
+          <!-- Subtab: Quiz (Satu Soal Per Layar) -->
+          <div id="subtab-quiz" class="subtab-panel active">
+            <div class="quiz-controls-card">
+              <div class="quiz-filters">
+                <label>Tahap: <select id="quiz-filter-stage"></select></label>
+                <label>Bab: <select id="quiz-filter-bab"></select></label>
+                <label>Prioritas UAS:
+                  <select id="quiz-filter-priority">
+                    <option value="all">Semua</option>
+                    <option value="Sangat Tinggi">Sangat Tinggi</option>
+                    <option value="Tinggi">Tinggi</option>
+                    <option value="Sedang">Sedang</option>
+                  </select>
+                </label>
+                <label>Status:
+                  <select id="quiz-filter-status">
+                    <option value="all">Semua</option>
+                    <option value="unanswered">Belum Dijawab</option>
+                    <option value="wrong">Remedial (Salah)</option>
+                    <option value="flagged">Ditandai Sulit</option>
+                  </select>
+                </label>
+                <label>Mode:
+                  <select id="quiz-mode">
+                    <option value="instant">Latihan (Koreksi Langsung)</option>
+                    <option value="exam">Simulasi Ujian (Timer 60m)</option>
+                  </select>
+                </label>
+              </div>
+              <div class="quiz-actions-top">
+                <span id="quiz-live-score" class="score-pill">Skor: 0/0</span>
+                <div id="exam-timer" class="timer-pill" style="display:none;">⏱️ 60:00</div>
+                <button id="btn-start-exam" class="btn btn-primary btn-sm" style="display:none;">Mulai Ujian</button>
+                <button id="btn-focus-uas" class="btn btn-ghost btn-sm" title="Filter hanya prioritas UAS Sangat Tinggi">🎯 Fokus UAS</button>
+                <button id="btn-toggle-qgrid" class="btn btn-ghost btn-sm">🗺 Nomor Soal</button>
+                <button id="btn-reset-quiz" class="btn btn-ghost btn-sm">↺ Reset</button>
+              </div>
+            </div>
+
+            <div class="quiz-single-stage">
               <div class="quiz-progress-bar"><div id="quiz-progress-fill" class="quiz-progress-fill"></div></div>
               <div id="question-stage" class="question-card"></div>
               <div class="quiz-nav-footer">
-                <button id="btn-prev-q" class="btn btn-ghost">← Sebelumnya</button>
+                <button id="btn-prev-q" class="btn btn-ghost btn-lg">← Sebelumnya</button>
                 <span id="q-counter" class="q-counter">Soal 1 / 50</span>
-                <button id="btn-next-q" class="btn btn-primary">Berikutnya →</button>
+                <button id="btn-next-q" class="btn btn-primary btn-lg">Berikutnya →</button>
               </div>
-              <div class="kbd-hint">Pintasan keyboard: <code>1–4</code> atau <code>A–D</code> untuk menjawab • <code>←</code> / <code>→</code> pindah soal • <code>F</code> tandai sulit</div>
+              <div class="kbd-hint">Pintasan: <code>1–4</code> atau <code>A–D</code> menjawab • <code>←</code> / <code>→</code> pindah soal • <code>F</code> tandai sulit</div>
             </div>
-            <aside class="quiz-navigator">
-              <h4>Navigasi Soal (Urut Bab)</h4>
-              <div class="nav-legend">
-                <span><i class="dot dot-correct"></i>Benar</span>
-                <span><i class="dot dot-wrong"></i>Salah</span>
-                <span><i class="dot dot-flag"></i>Tandai</span>
+
+            <!-- Collapsible Question Navigator -->
+            <div id="quiz-navigator-drawer" class="quiz-navigator">
+              <div class="row-between" style="margin-bottom:10px;">
+                <h4 style="margin:0;">Navigasi Nomor Soal (Urut Bab)</h4>
+                <div class="nav-legend">
+                  <span><i class="dot dot-correct"></i>Benar</span>
+                  <span><i class="dot dot-wrong"></i>Salah</span>
+                  <span><i class="dot dot-flag"></i>Tandai</span>
+                </div>
               </div>
               <div id="question-grid" class="question-grid"></div>
-              <div class="quick-session-box">
-                <button id="btn-goto-analytics" class="btn btn-accent full-width">📊 Analitik &amp; Ekspor MD</button>
-              </div>
-            </aside>
+            </div>
           </div>
-        </div>
 
-        <!-- TAB 4: FLASHCARD -->
-        <div id="tab-flashcard" class="tab-panel">
-          <div class="flashcard-controls">
-            <label>Pilih Bab: <select id="fc-bab-filter"></select></label>
-            <button id="btn-fc-shuffle" class="btn btn-ghost">🔀 Acak Kartu</button>
-          </div>
-          <div class="flashcard-stage">
-            <div id="flashcard-box" class="flashcard">
-              <div class="flashcard-inner">
-                <div class="flashcard-front">
-                  <span class="fc-tag" id="fc-tag"></span>
-                  <h3 id="fc-front-title"></h3>
-                  <div id="fc-front-body"></div>
-                  <div class="fc-hint">Klik kartu untuk membalik dan melihat rumus / jebakan UAS</div>
+          <!-- Subtab: Lab Praktek & Pyodide -->
+          <div id="subtab-practice" class="subtab-panel">
+            <div class="practice-layout">
+              <aside class="practice-sidebar">
+                <div class="row-between" style="margin-bottom:8px;">
+                  <h3 style="margin:0;font-size:15px;">Daftar Lab (50)</h3>
+                  <button id="btn-open-scratchpad" class="btn btn-ghost btn-sm">🧪 Sandbox</button>
                 </div>
-                <div class="flashcard-back">
-                  <span class="fc-tag">Ringkasan Kunci &amp; Jebakan UAS</span>
-                  <div id="fc-back-body"></div>
-                </div>
+                <div class="pyodide-pill" id="pyodide-status-pill">🐍 Pyodide: Siap dimuat saat dijalankan</div>
+                <div id="practice-list" class="practice-list"></div>
+              </aside>
+              <div class="practice-editor-area" id="practice-stage">
+                <div class="loading-box">Memuat lab praktek...</div>
               </div>
             </div>
-            <div class="fc-nav">
-              <button id="btn-fc-prev" class="btn btn-ghost">← Kartu Sebelumnya</button>
-              <span id="fc-counter">1 / 1</span>
-              <button id="btn-fc-next" class="btn btn-primary">Kartu Berikutnya →</button>
-            </div>
           </div>
-        </div>
+        </section>
 
-        <!-- TAB 5: LAB PRAKTEK & LIVE CODING -->
-        <div id="tab-practice" class="tab-panel">
-          <div class="practice-layout">
-            <aside class="practice-sidebar">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:6px;">
-                <h3 style="margin:0;">Daftar Lab Praktek</h3>
-                <button id="btn-open-scratchpad" class="btn btn-ghost" style="padding:4px 8px;font-size:11px;">🧪 Sandbox</button>
+        <!-- SECTION 4: STATISTIK & EKSPOR MD -->
+        <section id="sec-statistik" class="page-section">
+          <div class="course-switcher-bar" id="statistik-course-bar"></div>
+          <div class="badges-panel">
+            <div class="row-between" style="margin-bottom:12px;">
+              <div>
+                <h3 style="margin:0;">🏅 Pencapaian &amp; Streak Belajar</h3>
+                <p class="muted" style="margin:2px 0 0;">Progres ringan untuk menjaga ritme belajar Anda tanpa mengganggu fokus.</p>
               </div>
-              <div class="pyodide-pill" id="pyodide-status-pill">🐍 Pyodide: Siap dimuat saat dijalankan</div>
-              <div id="practice-list" class="practice-list"></div>
-            </aside>
-            <div class="practice-editor-area" id="practice-stage">
-              <div class="loading-box">Pilih soal praktek di sebelah kiri.</div>
+              <div class="gamify-pills">
+                <span class="g-pill g-peach">🔥 Streak <strong id="stat-streak">1</strong> hari</span>
+                <span class="g-pill g-lavender">✨ <strong id="stat-xp">0</strong> XP</span>
+              </div>
             </div>
+            <div id="achievements-grid" class="achievements-grid"></div>
           </div>
-        </div>
 
-        <!-- TAB 6: ANALITIK & EKSPOR MD -->
-        <div id="tab-analytics" class="tab-panel">
           <div class="analytics-grid">
             <div class="analytics-card">
-              <h3>Ringkasan Penguasaan &amp; Bagian yang Harus Diulang</h3>
+              <h3>Ringkasan Penguasaan &amp; Bagian Harus Diulang</h3>
               <div id="analytics-chapter-table"></div>
             </div>
             <div class="analytics-card">
-              <h3>Ekspor Hasil Sesi ke File Markdown (.md)</h3>
-              <p class="muted">
-                Laporan otomatis menganalisis performa per bab, daftar soal yang salah beserta materi remedialnya, lab praktek yang belum lulus, serta prioritas ulangan menjelang UAS. Ekspor dilakukan langsung di browser.
-              </p>
+              <h3>Ekspor Laporan Diagnostik Sesi (.md)</h3>
+              <p class="muted">Menganalisis bab belum dikuasai, daftar soal salah beserta remedialnya, dan prioritas revisi UAS langsung di browser.</p>
               <div class="export-actions">
-                <button id="btn-refresh-md" class="btn btn-ghost">🔄 Perbarui Preview</button>
-                <button id="btn-download-md" class="btn btn-accent">⬇ Unduh File .md</button>
-                <button id="btn-save-md-local" class="btn btn-primary">💾 Simpan ke Riwayat Browser</button>
-                <button id="btn-copy-md" class="btn btn-ghost">📋 Salin Teks</button>
+                <button id="btn-refresh-md" class="btn btn-ghost">🔄 Perbarui</button>
+                <button id="btn-download-md" class="btn btn-primary">⬇ Unduh .md</button>
+                <button id="btn-save-md-local" class="btn btn-ghost">💾 Simpan Riwayat</button>
+                <button id="btn-copy-md" class="btn btn-ghost">📋 Salin</button>
               </div>
               <div id="save-status-msg" class="save-status"></div>
               <textarea id="md-preview-box" class="md-preview-box" aria-label="Preview Laporan Analisis Sesi Markdown" readonly></textarea>
             </div>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+
+        <!-- SECTION 5: PENGATURAN -->
+        <section id="sec-pengaturan" class="page-section">
+          <div class="settings-grid">
+            <div class="settings-card">
+              <h3>🎨 Tampilan &amp; Tema</h3>
+              <p class="muted">Pilih tema pastel terang atau pastel gelap. Pengaturan default mengikuti preferensi sistem perangkat Anda dan tersimpan otomatis.</p>
+              <div class="theme-choices" id="theme-choices">
+                <button class="btn btn-ghost" data-theme-pref="system">🖥 Ikuti Sistem</button>
+                <button class="btn btn-ghost" data-theme-pref="light">☀️ Pastel Terang</button>
+                <button class="btn btn-ghost" data-theme-pref="dark">🌙 Pastel Gelap</button>
+              </div>
+              <p class="muted" id="theme-current-note" style="margin-top:10px;"></p>
+            </div>
+
+            <div class="settings-card">
+              <h3>📱 Status Aplikasi PWA &amp; Offline</h3>
+              <p class="muted">Situs ini dapat dipasang di layar utama HP atau komputer dan tetap membuka materi secara offline melalui Service Worker.</p>
+              <div class="pwa-info-list">
+                <div>Status Jaringan: <strong id="settings-net-status">Online</strong></div>
+                <div>Service Worker: <strong id="settings-sw-status">Memeriksa...</strong></div>
+              </div>
+              <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+                <button id="btn-install-pwa-settings" class="btn btn-primary" style="display:none;">📲 Pasang Aplikasi Sekarang</button>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <h3>🗄️ Kelola Data &amp; Progres Lokal</h3>
+              <p class="muted">Seluruh jawaban, catatan, XP, streak, dan riwayat laporan tersimpan aman di <code>localStorage</code> browser Anda.</p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+                <button id="btn-export-backup-json" class="btn btn-ghost">⬇ Cadangkan Progres (.json)</button>
+                <button id="btn-reset-all-progress" class="btn btn-danger">🗑 Reset Semua Progres</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- MOBILE BOTTOM NAVIGATION -->
+    <nav class="bottom-nav" aria-label="Navigasi Bawah HP">
+      <button class="bnav-item active" data-nav="beranda">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg>
+        <span>Beranda</span>
+      </button>
+      <button class="bnav-item" data-nav="belajar">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Belajar</span>
+      </button>
+      <button class="bnav-item" data-nav="latihan">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Latihan</span>
+      </button>
+      <button class="bnav-item" data-nav="statistik">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+        <span>Statistik</span>
+      </button>
+      <button class="bnav-item" data-nav="pengaturan">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.79 1 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Pengaturan</span>
+      </button>
+    </nav>
   </div>
 
-  <!-- MODAL RIWAYAT SESI MD (LOCALSTORAGE) -->
+  <!-- MODAL RIWAYAT SESI MD -->
   <div id="sessions-modal" class="modal" style="display:none;">
     <div class="modal-backdrop"></div>
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3>📄 Riwayat Laporan Sesi Tersimpan (Browser LocalStorage)</h3>
+        <h3>📄 Riwayat Laporan Sesi Tersimpan</h3>
         <button id="btn-close-modal" class="btn btn-ghost">✕</button>
       </div>
-      <div class="modal-body" id="sessions-modal-body">
-        Memuat daftar riwayat...
-      </div>
+      <div class="modal-body" id="sessions-modal-body">Memuat daftar riwayat...</div>
     </div>
   </div>
 

@@ -1,13 +1,13 @@
 {
   "name": "Portal Belajar Sains Data",
   "short_name": "Portal Belajar",
-  "description": "Portal belajar statis Prodi Sains Data: modul ringkas, 1.950 soal simulasi UAS, live coding Pyodide, dan ekspor analisis sesi MD.",
+  "description": "Portal belajar statis Prodi Sains Data bertema pastel kalem: modul ringkas, 1.950 soal simulasi UAS, live coding Pyodide, dan ekspor analisis sesi MD.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#0b1020",
-  "background_color": "#0b1020",
+  "theme_color": "#FAF6EF",
+  "background_color": "#FAF6EF",
   "lang": "id",
   "icons": [
     {

@@ -1,5 +1,5 @@
-const CACHE_VERSION = "portal-v1";
-const RUNTIME_CACHE = "portal-runtime-v1";
+const CACHE_VERSION = "portal-v4";
+const RUNTIME_CACHE = "portal-runtime-v4";
 
 const PRECACHE_URLS = [
   "./",

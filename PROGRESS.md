@@ -41,6 +41,15 @@
      - Event `beforeinstallprompt` tertangkap dan menampilkan tombol **`📲 Pasang Aplikasi`** di topbar.
      - Indikator **`📴 Mode Offline`** langsung tampil saat koneksi berubah offline.
      - Saat halaman di-*reload* penuh dalam mode **DevTools Offline**, seluruh 27 aset (termasuk 13 JSON mata kuliah dan aset CDN Google Fonts, KaTeX, serta Marked.js) berhasil dimuat **`200 OK`** langsung dari cache `sw.js` (`portal-v1` dan `portal-runtime-v1`).
+8. **Redesign Tema Pastel Kalem, Mobile-First & Gamifikasi Ringan (`portal-v4`)**:
+   - **Palet & Tipografi**: Tema terang krem `#FAF6EF` + kartu putih lembut (`#FFFFFF`), aksen *sage green* (`#B7D3C0`), lavender (`#D5C8F0`), *peach* (`#FFD9C7`), dan *baby blue* (`#CFE3F5`), teks utama `#33324A` / sekunder `#5E5D75` (kontras >= 4.5:1), sudut membulat `16–24px`, tipografi **Plus Jakarta Sans** & **JetBrains Mono**, font dasar `16px`. Tersedia **Mode Gelap Pastel (`#1F1D2E`)** yang mengikuti preferensi sistem secara default dan dapat diganti via tombol topbar atau menu `Pengaturan` (`localStorage`).
+   - **Identitas Visual & Dashboard**: Tiap dari 13 mata kuliah memiliki warna pastel dan emoji khas sendiri di kartu, badge semester, dan dua progress bar (persen bab selesai dan persen soal benar), dilengkapi dekorasi gelombang SVG pada hero dashboard dan menghormati `prefers-reduced-motion`.
+   - **Navigasi Mobile-First & Halaman Soal Fokus**: Sidebar pada layar lebar dan *bottom navigation* 5 menu (`Beranda`, `Belajar`, `Latihan`, `Statistik`, `Pengaturan`) pada HP; halaman soal menampilkan **satu soal per layar**, opsi jawaban berbentuk kartu besar, pembahasan buka-tutup (`<details>`), *skeleton loading*, *empty state*, serta blok kode dan konsol output Pyodide bernuansa pastel lembut yang jelas dibaca di mode terang maupun gelap.
+   - **Gamifikasi Ringan (`localStorage`)**: Pencatatan *streak* harian, **XP** (paham bab, soal benar, lab lulus), lencana pencapaian di halaman `Statistik`, serta animasi konfeti halus saat menyelesaikan suatu tahap/bab.
+   - **Aset PWA Pastel**: Pembaruan `manifest.json` (`theme_color` & `background_color` `#FAF6EF`), pembuatan ulang `icons/icon-192.png` dan `icons/icon-512.png` bergaya gradien *sage*–lavender, dan kenaikan versi cache `sw.js` (dari `portal-v1` ke `portal-v2` hingga `portal-v4` pasca perbaikan UI/CSS, tetap *precache* 21 berkas lokal dan seluruh path relatif). Tidak ada file di dalam `data/` yang diubah.
+   - **Hasil Uji Desktop (`1280x800`) & Mobile (`390x844`) di Chrome (`http://localhost:8000`)**:
+     - `node --check app.js` dan `node --check sw.js` lulus; `verify_pwa.py` memverifikasi 21 target precache dan `manifest.json`; `0` error konsol dan `0` issue Chromium pada hard reload dan normal reload dengan Service Worker `portal-v4`.
+     - Teruji di Desktop & Mobile `390x844`: `Beranda` (kartu matkul & filter semester), `Belajar` (modul bab, `Tandai Paham` +20 XP, `Tambahan UAS`, `Flashcard`), `Latihan` (kunjungan langsung mengisi dropdown tahap/bab, 1 soal per layar, umpan balik mint/pink + XP, drawer `#quiz-navigator-drawer` buka-tutup, `Lab Praktek & Pyodide`), `Statistik` (lencana, ekspor `.md`), `Pengaturan` (toggle tema Terang/Gelap/Sistem & status PWA `Aktif (portal-v4 siap offline)`), tanpa *horizontal overflow* di `390x844` serta chip `Sem 1` rapi satu baris.
 
 ---
 
@@ -48,11 +57,10 @@
 - **Pustaka Python di luar `stdlib + numpy + pandas`**: Sebanyak 96 lab yang mengimpor `scipy`, `scikit-learn`, atau `matplotlib` tidak dieksekusi di browser dan disajikan sebagai contoh baca-saja beserta output yang diharapkan.
 - **Penyimpanan ke folder disk server secara langsung**: Digantikan oleh unduhan browser (`Blob` + `<a download>`) dan riwayat `localStorage`.
 - **Sinkronisasi lintas perangkat**: Karena tanpa database/server, data `localStorage` hanya tersimpan di browser dan perangkat yang digunakan saat itu.
-- **Akses Offline Penuh Sebelum Kunjungan Pertama**: Aset lokal (`index.html`, `styles.css`, `app.js`, `manifest.json`, ikon, dan seluruh `data/`) di-*precache* oleh `sw.js`, sedangkan CDN (KaTeX, Marked.js, Pyodide, Google Fonts) di-*cache* ke `portal-runtime-v1` setelah pertama kali dimuat.
+- **Akses Offline Penuh Sebelum Kunjungan Pertama**: Aset lokal (`index.html`, `styles.css`, `app.js`, `manifest.json`, ikon, dan seluruh `data/`) di-*precache* oleh `sw.js`, sedangkan CDN (KaTeX, Marked.js, Pyodide, Google Fonts) di-*cache* ke `portal-runtime-v4` setelah pertama kali dimuat.
 
 ---
 
 ### Langkah Berikutnya
-1. Verifikasi PWA di Chrome pada `http://localhost:8000` (server `python -m http.server 8000` sudah aktif; aktifkan `chrome://inspect/#remote-debugging` di Chrome jika ingin agen melakukan cek DevTools otomatis).
-2. Push isi `portal-belajar-sains-data/` ke repositori GitHub `https://github.com/channotfound-exe/portal-belajar.git` branch `main` dan aktifkan GitHub Pages.
-3. *(Opsional)* Tambahkan fitur ekspor/impor cadangan progres `localStorage` dalam format `.json` apabila ingin memindahkan progres antar perangkat.
+1. Commit dan push pembaruan redesign Pastel Kalem ini ke repositori GitHub `https://github.com/channotfound-exe/portal-belajar.git` branch `main` agar live di GitHub Pages.
+2. *(Opsional)* Tambahkan fitur ekspor/impor cadangan progres `localStorage` dalam format `.json` apabila ingin memindahkan progres antar perangkat.
