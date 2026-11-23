@@ -40,15 +40,20 @@ const state = {
   activeStage: "1",
   filteredQuestions: [],
   activeQIdx: 0,
-  quizMode: "instant",
+  quizMode: "instant", // instant | random | remedial | exam
   examActive: false,
   examSubmitted: false,
   examSecondsLeft: 3600,
+  examTotalSeconds: 3600,
   examTimerHandle: null,
+  examQuestions: [],
+  examAnswers: {},
   fcList: [],
   fcIdx: 0,
   activeLabIdx: 0,
   sandboxMode: false,
+  activeSearchHighlight: "",
+  gsScope: "all",
   progress: loadProgress(),
 };
 
@@ -74,13 +79,22 @@ function getCourseProg(courseId) {
     state.progress[courseId] = {
       answers: {},
       flagged: {},
+      bookmarked: {},
       mastered: {},
       notes: {},
+      questionNotes: {},
+      flashcards: {},
       labPassed: {},
       labCode: {},
+      lastState: {},
     };
   }
-  return state.progress[courseId];
+  const p = state.progress[courseId];
+  if (!p.bookmarked) p.bookmarked = {};
+  if (!p.questionNotes) p.questionNotes = {};
+  if (!p.flashcards) p.flashcards = {};
+  if (!p.lastState) p.lastState = {};
+  return p;
 }
 
 function getGamify() {
@@ -107,11 +121,50 @@ function getSavedReports() {
 }
 
 function getLastCourseId() {
-  return state.progress.__lastCourseId || null;
+  return (state.progress.__lastPosition && state.progress.__lastPosition.courseId) || state.progress.__lastCourseId || null;
+}
+
+function getLastPosition() {
+  return state.progress.__lastPosition || null;
 }
 
 function setLastCourseId(cid) {
   state.progress.__lastCourseId = cid;
+  saveProgress();
+}
+
+function saveLastPosition(overrides = {}) {
+  if (!state.activeCourse) return;
+  const c = state.activeCourse;
+  const prog = getCourseProg(c.id);
+  const currentQ = state.filteredQuestions[state.activeQIdx];
+  const qKey = overrides.qKey !== undefined ? overrides.qKey : (currentQ ? currentQ._key : prog.lastState.qKey || null);
+  const babSel = document.getElementById("quiz-filter-bab");
+  const pos = {
+    courseId: c.id,
+    section: overrides.section || (state.activeSection === "beranda" || state.activeSection === "pengaturan" ? "belajar" : state.activeSection),
+    belajarTab: overrides.belajarTab || state.activeBelajarTab,
+    latihanTab: overrides.latihanTab || state.activeLatihanTab,
+    chapterIdx: overrides.chapterIdx !== undefined ? overrides.chapterIdx : state.activeChapterIdx,
+    stage: overrides.stage || state.activeStage,
+    babFilter: overrides.babFilter !== undefined ? overrides.babFilter : (babSel ? babSel.value : "all"),
+    quizMode: overrides.quizMode || state.quizMode,
+    qKey,
+    labIdx: overrides.labIdx !== undefined ? overrides.labIdx : state.activeLabIdx,
+    timestamp: Date.now(),
+  };
+  prog.lastState = {
+    chapterIdx: pos.chapterIdx,
+    stage: pos.stage,
+    babFilter: pos.babFilter,
+    quizMode: pos.quizMode,
+    qKey: pos.qKey,
+    labIdx: pos.labIdx,
+    belajarTab: pos.belajarTab,
+    latihanTab: pos.latihanTab,
+  };
+  state.progress.__lastCourseId = c.id;
+  state.progress.__lastPosition = pos;
   saveProgress();
 }
 
@@ -302,7 +355,7 @@ function initPwaControls() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.ready.then((reg) => {
       const swEl = document.getElementById("settings-sw-status");
-      if (swEl) swEl.textContent = reg.active ? "Aktif (portal-v4 siap offline)" : "Terdaftar";
+      if (swEl) swEl.textContent = reg.active ? "Aktif (portal-v5 siap offline)" : "Terdaftar";
     });
   }
 }
@@ -410,6 +463,34 @@ function toggleFlagQ(prog, q) {
   const next = !isFlaggedQ(prog, q);
   prog.flagged[q._key] = next;
   if (q._legacyKey) delete prog.flagged[q._legacyKey];
+}
+
+function isBookmarkedQ(prog, q) {
+  return !!(prog.bookmarked && prog.bookmarked[q._key]);
+}
+
+function toggleBookmarkQ(prog, q) {
+  if (!prog.bookmarked) prog.bookmarked = {};
+  prog.bookmarked[q._key] = !prog.bookmarked[q._key];
+}
+
+function getQuestionNote(prog, q) {
+  return (prog.questionNotes && prog.questionNotes[q._key]) || "";
+}
+
+function setQuestionNote(prog, q, text) {
+  if (!prog.questionNotes) prog.questionNotes = {};
+  if (text.trim()) prog.questionNotes[q._key] = text;
+  else delete prog.questionNotes[q._key];
+}
+
+function shuffleArray(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
 }
 
 /* Lazy Pyodide Loader */
@@ -543,8 +624,7 @@ async function init() {
     );
     const defaultId = getLastCourseId() || (state.index[0] && state.index[0].id);
     if (defaultId && state.coursesCache[defaultId]) {
-      state.activeCourse = state.coursesCache[defaultId];
-      syncActiveCourseViews();
+      restoreCourseState(state.coursesCache[defaultId], { preservePosition: true });
     }
     renderDashboard();
     refreshGamifyUI();
@@ -555,7 +635,7 @@ async function init() {
 }
 
 /* Navigation between 5 main sections */
-function navigateTo(sectionName) {
+function navigateTo(sectionName, opts = {}) {
   state.activeSection = sectionName;
   document.querySelectorAll(".page-section").forEach((s) => {
     s.classList.toggle("active", s.id === `sec-${sectionName}`);
@@ -565,6 +645,7 @@ function navigateTo(sectionName) {
   });
 
   if (sectionName === "beranda") {
+    state.activeSearchHighlight = "";
     renderDashboard();
   } else {
     if (!state.activeCourse && state.index.length) {
@@ -594,21 +675,42 @@ function navigateTo(sectionName) {
       refreshGamifyUI();
       renderAnalyticsTab();
     }
+    if (!opts.skipSave && (sectionName === "belajar" || sectionName === "latihan")) {
+      saveLastPosition({ section: sectionName });
+    }
   }
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  if (!opts.skipScroll) {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 }
 
 function bindGlobalEvents() {
   document.querySelectorAll(".nav-item, .bnav-item").forEach((btn) => {
-    btn.addEventListener("click", () => navigateTo(btn.dataset.nav));
+    btn.addEventListener("click", () => {
+      state.activeSearchHighlight = "";
+      navigateTo(btn.dataset.nav);
+    });
   });
 
   document.getElementById("btn-brand-home").addEventListener("click", () => navigateTo("beranda"));
   document.getElementById("mobile-brand-btn").addEventListener("click", () => navigateTo("beranda"));
 
   document.getElementById("btn-resume-last").addEventListener("click", () => {
-    const lastId = getLastCourseId();
-    if (lastId && state.coursesCache[lastId]) openCourse(lastId, "belajar");
+    const last = getLastPosition();
+    const lastId = (last && last.courseId) || getLastCourseId();
+    if (lastId && state.coursesCache[lastId]) {
+      openCourse(lastId, (last && last.section) || "belajar", {
+        preservePosition: true,
+        belajarTab: last && last.belajarTab,
+        latihanTab: last && last.latihanTab,
+        chapterIdx: last && last.chapterIdx,
+        stage: last && last.stage,
+        babFilter: last && last.babFilter,
+        quizMode: last && last.quizMode,
+        qKey: last && last.qKey,
+        labIdx: last && last.labIdx,
+      });
+    }
   });
 
   document.getElementById("btn-theme-toggle").addEventListener("click", () => {
@@ -647,16 +749,21 @@ function bindGlobalEvents() {
     state.activeStage = e.target.value;
     populateQuizBabDropdown();
     applyQuizFilters(true);
+    saveLastPosition();
   });
 
   ["quiz-filter-bab", "quiz-filter-priority", "quiz-filter-status"].forEach((id) => {
-    document.getElementById(id).addEventListener("change", () => applyQuizFilters(true));
+    document.getElementById(id).addEventListener("change", () => {
+      applyQuizFilters(true);
+      saveLastPosition();
+    });
   });
 
   document.getElementById("btn-focus-uas").addEventListener("click", () => {
     const sel = document.getElementById("quiz-filter-priority");
     sel.value = sel.value === "Sangat Tinggi" ? "all" : "Sangat Tinggi";
     applyQuizFilters(true);
+    saveLastPosition();
   });
 
   document.getElementById("btn-toggle-qgrid").addEventListener("click", () => {
@@ -667,34 +774,47 @@ function bindGlobalEvents() {
 
   document.getElementById("quiz-mode").addEventListener("change", (e) => {
     state.quizMode = e.target.value;
-    const isExam = state.quizMode === "exam";
-    document.getElementById("exam-timer").style.display = isExam ? "inline-flex" : "none";
-    document.getElementById("btn-start-exam").style.display = isExam ? "inline-flex" : "none";
-    if (!isExam) {
-      stopExamTimer();
-      state.examActive = false;
-      state.examSubmitted = false;
-    } else {
-      state.examSubmitted = false;
-      state.examSecondsLeft = 3600;
-      document.getElementById("btn-start-exam").textContent = "Mulai Ujian";
-      updateExamTimerUI();
+    if (state.quizMode === "remedial" && state.activeCourse) {
+      // Ensure remedial finds wrong questions across all stages if current stage has none
+      const curWrong = getStageQuestions(state.activeCourse, state.activeStage).filter((q) => {
+        const ch = getAnswer(getCourseProg(state.activeCourse.id), q);
+        return ch !== undefined && ch !== q.answer_index;
+      });
+      if (!curWrong.length && document.getElementById("quiz-filter-stage").querySelector('option[value="all"]')) {
+        state.activeStage = "all";
+        document.getElementById("quiz-filter-stage").value = "all";
+        populateQuizBabDropdown();
+      }
     }
+    syncQuizModeUI();
+    applyQuizFilters(true);
+    saveLastPosition();
+  });
+
+  document.getElementById("btn-reshuffle-q").addEventListener("click", () => {
+    state.filteredQuestions = shuffleArray(state.filteredQuestions);
+    state.activeQIdx = 0;
     renderCurrentQuestion();
     renderQuestionGrid();
   });
 
+  document.getElementById("exam-duration-select").addEventListener("change", () => {
+    if (!state.examActive) {
+      const mins = Number(document.getElementById("exam-duration-select").value) || 60;
+      state.examSecondsLeft = mins * 60;
+      state.examTotalSeconds = state.examSecondsLeft;
+      updateExamTimerUI();
+    }
+  });
+
   document.getElementById("btn-start-exam").addEventListener("click", () => {
     if (!state.examActive) {
-      state.examActive = true;
-      state.examSubmitted = false;
-      state.examSecondsLeft = 3600;
-      document.getElementById("btn-start-exam").textContent = "Selesaikan & Koreksi";
-      startExamTimer();
+      startNewExamSimulation();
     } else {
       finishExam();
     }
     renderCurrentQuestion();
+    renderQuestionGrid();
   });
 
   document.getElementById("btn-reset-quiz").addEventListener("click", () => {
@@ -705,7 +825,10 @@ function bindGlobalEvents() {
     p.flagged = {};
     state.examActive = false;
     state.examSubmitted = false;
+    state.examQuestions = [];
+    state.examAnswers = {};
     stopExamTimer();
+    syncQuizModeUI();
     saveProgress();
     applyQuizFilters(true);
     updateCourseTopbar();
@@ -716,6 +839,7 @@ function bindGlobalEvents() {
       state.activeQIdx--;
       renderCurrentQuestion();
       renderQuestionGrid();
+      saveLastPosition();
     }
   });
   document.getElementById("btn-next-q").addEventListener("click", () => {
@@ -723,10 +847,22 @@ function bindGlobalEvents() {
       state.activeQIdx++;
       renderCurrentQuestion();
       renderQuestionGrid();
+      saveLastPosition();
     }
   });
 
   document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      openGlobalSearchModal();
+      return;
+    }
+    if (e.key === "Escape") {
+      const gs = document.getElementById("global-search-modal");
+      const sm = document.getElementById("sessions-modal");
+      if (gs && gs.style.display !== "none") { closeGlobalSearchModal(); return; }
+      if (sm && sm.style.display !== "none") { sm.style.display = "none"; return; }
+    }
     if (!state.activeCourse || state.activeSection !== "latihan" || state.activeLatihanTab !== "quiz") return;
     const tag = ((e.target && e.target.tagName) || "").toLowerCase();
     if (tag === "input" || tag === "textarea" || tag === "select") return;
@@ -745,19 +881,25 @@ function bindGlobalEvents() {
     } else if (k === "f") {
       const fb = document.getElementById("btn-flag-q");
       if (fb) fb.click();
+    } else if (k === "b") {
+      const bb = document.getElementById("btn-bookmark-q");
+      if (bb) bb.click();
     }
   });
 
-  // Flashcard controls
+  // Flashcard controls + spaced repetition
   document.getElementById("flashcard-box").addEventListener("click", () => {
     document.getElementById("flashcard-box").classList.toggle("flipped");
   });
   document.getElementById("fc-bab-filter").addEventListener("change", buildFlashcardList);
+  document.getElementById("fc-mode-filter").addEventListener("change", buildFlashcardList);
   document.getElementById("btn-fc-shuffle").addEventListener("click", () => {
-    state.fcList.sort(() => Math.random() - 0.5);
+    state.fcList = shuffleArray(state.fcList);
     state.fcIdx = 0;
     renderFlashcard();
   });
+  document.getElementById("btn-fc-mark-belum").addEventListener("click", () => rateCurrentFlashcard("belum"));
+  document.getElementById("btn-fc-mark-hafal").addEventListener("click", () => rateCurrentFlashcard("hafal"));
   document.getElementById("btn-fc-prev").addEventListener("click", () => {
     if (state.fcIdx > 0) { state.fcIdx--; renderFlashcard(); }
   });
@@ -793,7 +935,7 @@ function bindGlobalEvents() {
   });
 
   document.getElementById("btn-reset-all-progress").addEventListener("click", () => {
-    if (!confirm("Hapus seluruh progres belajar, skor, catatan, dan XP di browser ini?")) return;
+    if (!confirm("Hapus seluruh progres belajar, skor, catatan, bookmark, flashcard, dan XP di browser ini?")) return;
     localStorage.removeItem(STORAGE_KEY);
     state.progress = loadProgress();
     touchDailyStreak();
@@ -803,7 +945,7 @@ function bindGlobalEvents() {
     alert("Semua progres lokal berhasil direset.");
   });
 
-  // Modal
+  // Modals (Sessions & Global Search)
   document.getElementById("btn-sessions-modal").addEventListener("click", openSessionsModal);
   document.getElementById("btn-close-modal").addEventListener("click", () => {
     document.getElementById("sessions-modal").style.display = "none";
@@ -811,19 +953,35 @@ function bindGlobalEvents() {
   document.querySelector("#sessions-modal .modal-backdrop").addEventListener("click", () => {
     document.getElementById("sessions-modal").style.display = "none";
   });
+
+  document.getElementById("btn-global-search").addEventListener("click", openGlobalSearchModal);
+  document.getElementById("btn-close-gs").addEventListener("click", closeGlobalSearchModal);
+  document.getElementById("gs-backdrop").addEventListener("click", closeGlobalSearchModal);
+  document.getElementById("global-search-input").addEventListener("input", runGlobalSearch);
+  document.getElementById("gs-current-only").addEventListener("change", runGlobalSearch);
+  document.querySelectorAll("#gs-scope-tabs .pill").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#gs-scope-tabs .pill").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.gsScope = btn.dataset.gsType;
+      runGlobalSearch();
+    });
+  });
 }
 
-function switchBelajarTab(subtabId) {
+function switchBelajarTab(subtabId, skipSave = false) {
   state.activeBelajarTab = subtabId;
   document.querySelectorAll("#sec-belajar .subtab-btn").forEach((b) => b.classList.toggle("active", b.dataset.subtab === subtabId));
   document.querySelectorAll("#sec-belajar .subtab-panel").forEach((p) => p.classList.toggle("active", p.id === `subtab-${subtabId}`));
   if (subtabId === "flashcard") renderFlashcard();
+  if (!skipSave) saveLastPosition({ belajarTab: subtabId });
 }
 
-function switchLatihanTab(subtabId) {
+function switchLatihanTab(subtabId, skipSave = false) {
   state.activeLatihanTab = subtabId;
   document.querySelectorAll("#sec-latihan .subtab-btn").forEach((b) => b.classList.toggle("active", b.dataset.subtab === subtabId));
   document.querySelectorAll("#sec-latihan .subtab-panel").forEach((p) => p.classList.toggle("active", p.id === `subtab-${subtabId}`));
+  if (!skipSave) saveLastPosition({ latihanTab: subtabId });
 }
 
 /* Dashboard */
@@ -848,11 +1006,25 @@ function renderDashboard() {
   const pct = totalQ ? Math.round((totalAnswered / totalQ) * 100) : 0;
   document.getElementById("stat-answered-overall").textContent = `${pct}%`;
 
-  const lastId = getLastCourseId();
+  const lastPos = getLastPosition();
+  const lastId = (lastPos && lastPos.courseId) || getLastCourseId();
   const resumeBtn = document.getElementById("btn-resume-last");
   if (lastId && state.coursesCache[lastId]) {
+    const courseObj = state.coursesCache[lastId];
+    const shortTitle = courseObj.title.split("(")[0].trim();
+    let detail = "";
+    if (lastPos && lastPos.courseId === lastId) {
+      if (lastPos.section === "latihan") {
+        if (lastPos.latihanTab === "practice") detail = ` — Lab #${(lastPos.labIdx || 0) + 1}`;
+        else if (lastPos.qKey) detail = ` — Soal ${String(lastPos.qKey).replace(/^s(\d+)_/, "T$1 #")}`;
+        else detail = " — Latihan Soal";
+      } else {
+        const ch = (courseObj.chapters || [])[lastPos.chapterIdx || 0];
+        if (ch) detail = ` — ${ch.bab}`;
+      }
+    }
     resumeBtn.style.display = "inline-flex";
-    resumeBtn.textContent = `▶ Lanjut: ${state.coursesCache[lastId].title.split("(")[0].trim()}`;
+    resumeBtn.textContent = `▶ Lanjut: ${shortTitle}${detail}`;
   } else {
     resumeBtn.style.display = "none";
   }
@@ -935,7 +1107,37 @@ function renderCourseGrid() {
   });
 }
 
-function syncActiveCourseViews() {
+function restoreCourseState(course, opts = {}) {
+  const prog = getCourseProg(course.id);
+  const saved = prog.lastState || {};
+  const preserve = opts.preservePosition !== false;
+  state.activeCourse = course;
+  const maxChap = Math.max(0, (course.chapters || []).length - 1);
+  state.activeChapterIdx = opts.chapterIdx !== undefined
+    ? Math.min(maxChap, Math.max(0, Number(opts.chapterIdx) || 0))
+    : (preserve && saved.chapterIdx !== undefined ? Math.min(maxChap, Number(saved.chapterIdx) || 0) : 0);
+  const maxLab = Math.max(0, (course.practice_labs || []).length - 1);
+  state.activeLabIdx = opts.labIdx !== undefined
+    ? Math.min(maxLab, Math.max(0, Number(opts.labIdx) || 0))
+    : (preserve && saved.labIdx !== undefined ? Math.min(maxLab, Number(saved.labIdx) || 0) : 0);
+  state.sandboxMode = false;
+  state.examActive = false;
+  state.examSubmitted = false;
+  state.examQuestions = [];
+  state.examAnswers = {};
+  stopExamTimer();
+
+  syncActiveCourseViews({
+    stage: opts.stage || (preserve ? saved.stage : undefined),
+    babFilter: opts.babFilter || (preserve ? saved.babFilter : undefined),
+    quizMode: opts.quizMode || (preserve ? saved.quizMode : undefined),
+    qKey: opts.qKey || (preserve ? saved.qKey : undefined),
+  });
+  if (opts.belajarTab) switchBelajarTab(opts.belajarTab, true);
+  if (opts.latihanTab) switchLatihanTab(opts.latihanTab, true);
+}
+
+function syncActiveCourseViews(quizRestoreOpts = {}) {
   if (!state.activeCourse) return;
   updateCourseTopbar();
   renderCourseSwitchers();
@@ -943,13 +1145,13 @@ function syncActiveCourseViews() {
   renderChapterDetail();
   renderUasGaps();
   renderCheatSheet();
-  initQuizFilters();
+  initQuizFilters(quizRestoreOpts);
   initFlashcardFilters();
   renderPracticeSidebar();
   renderPracticeStage();
 }
 
-async function openCourse(courseId, targetSection = "belajar") {
+async function openCourse(courseId, targetSection = "belajar", opts = {}) {
   let course = state.coursesCache[courseId];
   if (!course) {
     const meta = state.index.find((x) => x.id === courseId);
@@ -957,18 +1159,11 @@ async function openCourse(courseId, targetSection = "belajar") {
     course = await r.json();
     state.coursesCache[courseId] = course;
   }
-  state.activeCourse = course;
-  state.activeChapterIdx = 0;
-  state.activeLabIdx = 0;
-  state.sandboxMode = false;
-  state.examActive = false;
-  state.examSubmitted = false;
-  stopExamTimer();
-  setLastCourseId(courseId);
+  if (!opts.keepHighlight) state.activeSearchHighlight = "";
   document.getElementById("quiz-navigator-drawer")?.classList.remove("open");
-
-  syncActiveCourseViews();
-  navigateTo(targetSection);
+  restoreCourseState(course, opts);
+  setLastCourseId(courseId);
+  navigateTo(targetSection, { skipScroll: opts.skipScroll });
 }
 
 function updateCourseTopbar() {
@@ -1072,7 +1267,9 @@ function renderChapterSidebar() {
 
   list.querySelectorAll(".chapter-item").forEach((el) => {
     el.addEventListener("click", () => {
+      state.activeSearchHighlight = "";
       state.activeChapterIdx = Number(el.dataset.idx);
+      saveLastPosition({ chapterIdx: state.activeChapterIdx, section: "belajar", belajarTab: "modul" });
       renderChapterSidebar();
       renderChapterDetail();
     });
@@ -1121,12 +1318,16 @@ function renderChapterDetail() {
     <div class="markdown-body" id="chapter-md-body">${renderMd(ch.content_md)}</div>
 
     <div class="notes-box">
-      <label for="chapter-note-input" style="font-size:14px;font-weight:700;display:block;margin-bottom:6px;">📝 Catatan Belajar Pribadi (${escHtml(ch.bab)})</label>
+      <div class="q-note-head">
+        <label for="chapter-note-input">📝 Catatan Belajar Pribadi (${escHtml(ch.bab)})</label>
+        <span class="muted" id="chapter-note-save-status" style="font-size:12px;">${noteVal ? "✓ Tersimpan di browser" : ""}</span>
+      </div>
       <textarea id="chapter-note-input" placeholder="Tulis poin yang masih membingungkan atau trik cepat Anda di sini...">${escHtml(noteVal)}</textarea>
     </div>
   `;
 
   applyMath(card);
+  highlightAndScrollIfActive(card);
 
   document.getElementById("btn-toggle-mastered").addEventListener("click", () => {
     prog.mastered[ch.bab] = !prog.mastered[ch.bab];
@@ -1138,6 +1339,10 @@ function renderChapterDetail() {
   });
 
   document.getElementById("btn-practice-this-bab").addEventListener("click", () => {
+    state.activeSearchHighlight = "";
+    state.quizMode = "instant";
+    document.getElementById("quiz-mode").value = "instant";
+    syncQuizModeUI();
     document.getElementById("quiz-filter-bab").value = ch.bab;
     applyQuizFilters(true);
     switchLatihanTab("quiz");
@@ -1147,6 +1352,8 @@ function renderChapterDetail() {
   document.getElementById("chapter-note-input").addEventListener("input", (e) => {
     prog.notes[ch.bab] = e.target.value;
     saveProgress();
+    const st = document.getElementById("chapter-note-save-status");
+    if (st) st.textContent = e.target.value.trim() ? "✓ Tersimpan otomatis" : "";
   });
 }
 
@@ -1170,6 +1377,7 @@ function renderUasGaps() {
     )
     .join("");
   applyMath(wrap);
+  highlightAndScrollIfActive(wrap);
 }
 
 function renderCheatSheet() {
@@ -1192,7 +1400,34 @@ function renderCheatSheet() {
 }
 
 /* LATIHAN: SIMULASI SOAL */
-function initQuizFilters() {
+function syncQuizModeUI() {
+  const isExam = state.quizMode === "exam";
+  const isRandom = state.quizMode === "random";
+  const cfg = document.getElementById("exam-config-bar");
+  const timer = document.getElementById("exam-timer");
+  const startBtn = document.getElementById("btn-start-exam");
+  const reshuffleBtn = document.getElementById("btn-reshuffle-q");
+  if (cfg) cfg.style.display = isExam ? "flex" : "none";
+  if (timer) timer.style.display = isExam ? "inline-flex" : "none";
+  if (startBtn) startBtn.style.display = isExam ? "inline-flex" : "none";
+  if (reshuffleBtn) reshuffleBtn.style.display = isRandom ? "inline-flex" : "none";
+
+  if (!isExam) {
+    stopExamTimer();
+    state.examActive = false;
+    state.examSubmitted = false;
+    state.examQuestions = [];
+    state.examAnswers = {};
+  } else if (!state.examActive && !state.examSubmitted) {
+    const mins = Number(document.getElementById("exam-duration-select")?.value) || 60;
+    state.examSecondsLeft = mins * 60;
+    state.examTotalSeconds = state.examSecondsLeft;
+    if (startBtn) startBtn.textContent = "Mulai Simulasi UAS";
+    updateExamTimerUI();
+  }
+}
+
+function initQuizFilters(restoreOpts = {}) {
   const c = state.activeCourse;
   const stageSel = document.getElementById("quiz-filter-stage");
   const opts = [`<option value="1">Tahap 1 (${(c.questions_stage_1 || []).length} Soal)</option>`];
@@ -1202,17 +1437,26 @@ function initQuizFilters() {
     opts.push(`<option value="all">Semua Tahap (${getStageQuestions(c, "all").length} Soal)</option>`);
   }
   stageSel.innerHTML = opts.join("");
-  state.activeStage = "1";
-  stageSel.value = "1";
+  const targetStage = restoreOpts.stage && stageSel.querySelector(`option[value="${restoreOpts.stage}"]`) ? restoreOpts.stage : "1";
+  state.activeStage = targetStage;
+  stageSel.value = targetStage;
 
   populateQuizBabDropdown();
+  const babSel = document.getElementById("quiz-filter-bab");
+  if (restoreOpts.babFilter && [...babSel.options].some((o) => o.value === restoreOpts.babFilter)) {
+    babSel.value = restoreOpts.babFilter;
+  }
   document.getElementById("quiz-filter-priority").value = "all";
   document.getElementById("quiz-filter-status").value = "all";
-  document.getElementById("quiz-mode").value = "instant";
-  state.quizMode = "instant";
-  document.getElementById("exam-timer").style.display = "none";
-  document.getElementById("btn-start-exam").style.display = "none";
-  applyQuizFilters(true);
+
+  const modeSel = document.getElementById("quiz-mode");
+  const targetMode = restoreOpts.quizMode && restoreOpts.quizMode !== "exam" && modeSel.querySelector(`option[value="${restoreOpts.quizMode}"]`)
+    ? restoreOpts.quizMode
+    : "instant";
+  state.quizMode = targetMode;
+  modeSel.value = targetMode;
+  syncQuizModeUI();
+  applyQuizFilters(true, restoreOpts.qKey || null);
 }
 
 function populateQuizBabDropdown() {
@@ -1224,28 +1468,68 @@ function populateQuizBabDropdown() {
     babs.map((b) => `<option value="${escHtml(b)}">${escHtml(b)}</option>`).join("");
 }
 
-function applyQuizFilters(resetIndex = false) {
+function getQuizFilteredPool() {
   const c = state.activeCourse;
   const prog = getCourseProg(c.id);
   const bab = document.getElementById("quiz-filter-bab").value;
   const prio = document.getElementById("quiz-filter-priority").value;
   const status = document.getElementById("quiz-filter-status").value;
 
-  state.filteredQuestions = getStageQuestions(c, state.activeStage).filter((q) => {
+  return getStageQuestions(c, state.activeStage).filter((q) => {
     if (bab !== "all" && q.bab !== bab) return false;
     if (prio !== "all" && q.uas_priority !== prio) return false;
     const chosen = getAnswer(prog, q);
+    if (state.quizMode === "remedial") {
+      if (chosen === undefined || chosen === q.answer_index) return false;
+    }
     if (status === "unanswered" && chosen !== undefined) return false;
     if (status === "wrong" && (chosen === undefined || chosen === q.answer_index)) return false;
     if (status === "flagged" && !isFlaggedQ(prog, q)) return false;
+    if (status === "bookmarked" && !isBookmarkedQ(prog, q)) return false;
     return true;
   });
+}
 
-  if (resetIndex || state.activeQIdx >= state.filteredQuestions.length) {
+function applyQuizFilters(resetIndex = false, targetQKey = null) {
+  if (state.quizMode === "exam" && (state.examActive || state.examSubmitted) && state.examQuestions.length) {
+    state.filteredQuestions = state.examQuestions;
+  } else {
+    let pool = getQuizFilteredPool();
+    if (state.quizMode === "random") {
+      pool = shuffleArray(pool);
+    }
+    state.filteredQuestions = pool;
+  }
+
+  if (targetQKey) {
+    const foundIdx = state.filteredQuestions.findIndex((q) => q._key === targetQKey);
+    state.activeQIdx = foundIdx >= 0 ? foundIdx : 0;
+  } else if (resetIndex || state.activeQIdx >= state.filteredQuestions.length) {
     state.activeQIdx = 0;
   }
   renderCurrentQuestion();
   renderQuestionGrid();
+}
+
+function startNewExamSimulation() {
+  const pool = getQuizFilteredPool();
+  const basePool = pool.length ? pool : getStageQuestions(state.activeCourse, state.activeStage);
+  const countVal = document.getElementById("exam-count-select").value;
+  const shuffled = shuffleArray(basePool);
+  const count = countVal === "all" ? shuffled.length : Math.min(shuffled.length, Number(countVal) || 50);
+  const mins = Number(document.getElementById("exam-duration-select").value) || 60;
+
+  state.examQuestions = shuffled.slice(0, count);
+  state.filteredQuestions = state.examQuestions;
+  state.examAnswers = {};
+  state.examActive = true;
+  state.examSubmitted = false;
+  state.activeQIdx = 0;
+  state.examSecondsLeft = mins * 60;
+  state.examTotalSeconds = state.examSecondsLeft;
+  document.getElementById("btn-start-exam").textContent = "Selesaikan & Koreksi";
+  updateExamTimerUI();
+  startExamTimer();
 }
 
 function checkStageCompletionCelebration(course, prog, stageNum) {
@@ -1269,16 +1553,20 @@ function renderCurrentQuestion() {
   const prog = getCourseProg(c.id);
 
   if (!state.filteredQuestions.length) {
+    const isRemedial = state.quizMode === "remedial";
     stage.innerHTML = `
       <div class="empty-state">
         <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--text-muted)"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        <h4>Tidak ada soal pada filter ini</h4>
-        <p>Bagus! Mungkin belum ada soal salah atau semua soal pada filter ini sudah selesai dikerjakan.</p>
+        <h4>${isRemedial ? "Belum ada soal salah untuk remedial 🎉" : "Tidak ada soal pada filter ini"}</h4>
+        <p>${isRemedial ? "Hebat! Belum ada jawaban salah yang tercatat pada filter saat ini, atau seluruh soal remedial sudah diperbaiki." : "Mungkin belum ada soal bookmark/salah atau semua soal pada filter ini sudah selesai dikerjakan."}</p>
         <button class="btn btn-primary" id="btn-reset-q-filters">Tampilkan Semua Soal</button>
       </div>`;
     document.getElementById("q-counter").textContent = "0 / 0";
     document.getElementById("quiz-progress-fill").style.width = "0%";
     document.getElementById("btn-reset-q-filters").addEventListener("click", () => {
+      state.quizMode = "instant";
+      document.getElementById("quiz-mode").value = "instant";
+      syncQuizModeUI();
       document.getElementById("quiz-filter-bab").value = "all";
       document.getElementById("quiz-filter-priority").value = "all";
       document.getElementById("quiz-filter-status").value = "all";
@@ -1288,11 +1576,32 @@ function renderCurrentQuestion() {
   }
 
   const q = state.filteredQuestions[state.activeQIdx];
-  const chosen = getAnswer(prog, q);
+  const isExamMode = state.quizMode === "exam";
+  const chosen = isExamMode ? state.examAnswers[q._key] : getAnswer(prog, q);
   const isFlagged = isFlaggedQ(prog, q);
+  const isBookmarked = isBookmarkedQ(prog, q);
+  const qNote = getQuestionNote(prog, q);
   const showCorrection =
-    (state.quizMode === "instant" && chosen !== undefined) ||
-    (state.quizMode === "exam" && state.examSubmitted);
+    (!isExamMode && chosen !== undefined) ||
+    (isExamMode && state.examSubmitted);
+
+  let examSummaryHtml = "";
+  if (isExamMode && state.examSubmitted) {
+    const examList = state.examQuestions;
+    const examRight = examList.filter((item) => state.examAnswers[item._key] === item.answer_index).length;
+    const examAns = examList.filter((item) => state.examAnswers[item._key] !== undefined).length;
+    const pct = examList.length ? Math.round((examRight / examList.length) * 100) : 0;
+    examSummaryHtml = `
+      <div class="exam-summary-banner">
+        <div class="row-between">
+          <div>
+            <strong>🎓 Hasil Simulasi UAS Selesai!</strong>
+            <div class="muted" style="font-size:13px;">Benar <strong>${examRight}/${examList.length}</strong> (${pct}%) • Dijawab ${examAns}/${examList.length}. Pembahasan kini terbuka di seluruh soal di bawah.</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="btn-exam-goto-stat">📊 Analitik &amp; Ekspor MD</button>
+        </div>
+      </div>`;
+  }
 
   const letters = ["A", "B", "C", "D"];
   const optionsHtml = q.options
@@ -1314,10 +1623,15 @@ function renderCurrentQuestion() {
   let explHtml = "";
   if (showCorrection) {
     const isCorrect = chosen === q.answer_index;
+    const statusText = chosen === undefined
+      ? `⚪ Tidak Dijawab — Kunci: ${letters[q.answer_index]}`
+      : isCorrect
+        ? "✅ Jawaban Benar! (+10 XP)"
+        : `❌ Kurang Tepat — Kunci: ${letters[q.answer_index]}`;
     explHtml = `
       <details class="explanation-details ${isCorrect ? "ok" : "bad"}" open>
         <summary>
-          <span>${isCorrect ? "✅ Jawaban Benar! (+10 XP)" : `❌ Kurang Tepat — Kunci: ${letters[q.answer_index]}`}</span>
+          <span>${statusText}</span>
           <span style="font-size:12px;">Buka / Tutup Pembahasan ▾</span>
         </summary>
         <div class="explanation-body">
@@ -1328,36 +1642,61 @@ function renderCurrentQuestion() {
           </div>
         </div>
       </details>`;
+  } else if (isExamMode) {
+    explHtml = `<div class="muted" style="margin-top:14px;font-size:13px;">⏱ Mode Simulasi UAS: Pembahasan &amp; kunci jawaban akan dibuka otomatis setelah Anda menekan <strong>Selesaikan &amp; Koreksi</strong> atau waktu habis.</div>`;
   }
 
   stage.innerHTML = `
+    ${examSummaryHtml}
     <div class="q-header">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span class="c-badge pastel" style="background:var(--baby-blue);color:var(--baby-blue-ink);">Soal #${q.id}</span>
         <span class="c-badge">${escHtml(q.bab)}</span>
         <span class="prio-badge ${prioClass(q.uas_priority)}">UAS: ${escHtml(q.uas_priority)}</span>
       </div>
-      <button id="btn-flag-q" class="btn btn-ghost btn-sm">${isFlagged ? "🚩 Ditandai Sulit" : "🏳 Tandai Sulit"}</button>
+      <div class="q-header-actions">
+        <button id="btn-bookmark-q" class="btn btn-ghost btn-sm ${isBookmarked ? "btn-pill-active" : ""}" title="Simpan ke daftar bookmark (B)">${isBookmarked ? "🔖 Tersimpan" : "🔖 Bookmark"}</button>
+        <button id="btn-flag-q" class="btn btn-ghost btn-sm ${isFlagged ? "btn-pill-active" : ""}" title="Tandai soal sulit (F)">${isFlagged ? "🚩 Sulit" : "🏳 Tandai"}</button>
+      </div>
     </div>
     <div class="q-text markdown-body">${renderMd(q.question)}</div>
     <div class="options-list">${optionsHtml}</div>
     ${explHtml}
+    <div class="q-note-box">
+      <div class="q-note-head">
+        <label for="question-note-input">📝 Catatan Pribadi Soal Ini</label>
+        <span class="muted" id="q-note-status" style="font-size:12px;">${qNote ? "✓ Tersimpan" : ""}</span>
+      </div>
+      <textarea id="question-note-input" placeholder="Tulis rumus singkat, jebakan soal, atau pengingat pribadi untuk soal #${q.id}...">${escHtml(qNote)}</textarea>
+    </div>
   `;
 
   applyMath(stage);
+  highlightAndScrollIfActive(stage);
 
   document.getElementById("q-counter").textContent = `Soal ${state.activeQIdx + 1} / ${state.filteredQuestions.length}`;
-  const answeredInFilter = state.filteredQuestions.filter((item) => getAnswer(prog, item) !== undefined).length;
+  const answeredInFilter = state.filteredQuestions.filter((item) =>
+    isExamMode ? state.examAnswers[item._key] !== undefined : getAnswer(prog, item) !== undefined
+  ).length;
   document.getElementById("quiz-progress-fill").style.width = `${Math.round((answeredInFilter / state.filteredQuestions.length) * 100)}%`;
+
+  const gotoStat = document.getElementById("btn-exam-goto-stat");
+  if (gotoStat) gotoStat.addEventListener("click", () => navigateTo("statistik"));
 
   stage.querySelectorAll(".option-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      if (state.quizMode === "exam" && !state.examActive && !state.examSubmitted) {
-        alert("Klik 'Mulai Ujian' terlebih dahulu untuk memulai simulasi ber-timer.");
+      if (isExamMode && !state.examActive && !state.examSubmitted) {
+        alert("Klik 'Mulai Simulasi UAS' terlebih dahulu untuk memulai simulasi ber-timer.");
         return;
       }
-      if (state.quizMode === "exam" && state.examSubmitted) return;
+      if (isExamMode && state.examSubmitted) return;
       const optIdx = Number(btn.dataset.opt);
+      if (isExamMode) {
+        state.examAnswers[q._key] = optIdx;
+        renderCurrentQuestion();
+        renderQuestionGrid();
+        return;
+      }
       const firstAttempt = getAnswer(prog, q) === undefined;
       setAnswer(prog, q, optIdx);
       const g = getGamify();
@@ -1371,12 +1710,20 @@ function renderCurrentQuestion() {
         }
       }
       saveProgress();
+      saveLastPosition({ section: "latihan", latihanTab: "quiz", qKey: q._key });
       checkStageCompletionCelebration(c, prog, q._stage);
       refreshGamifyUI();
       updateCourseTopbar();
       renderCurrentQuestion();
       renderQuestionGrid();
     });
+  });
+
+  document.getElementById("btn-bookmark-q").addEventListener("click", () => {
+    toggleBookmarkQ(prog, q);
+    saveProgress();
+    renderCurrentQuestion();
+    renderQuestionGrid();
   });
 
   document.getElementById("btn-flag-q").addEventListener("click", () => {
@@ -1386,12 +1733,20 @@ function renderCurrentQuestion() {
     renderQuestionGrid();
   });
 
+  document.getElementById("question-note-input").addEventListener("input", (e) => {
+    setQuestionNote(prog, q, e.target.value);
+    saveProgress();
+    const st = document.getElementById("q-note-status");
+    if (st) st.textContent = e.target.value.trim() ? "✓ Tersimpan otomatis" : "";
+  });
+
   const jumpBtn = document.getElementById("btn-jump-remedial");
   if (jumpBtn) {
     jumpBtn.addEventListener("click", () => {
       const idx = (c.chapters || []).findIndex((ch) => ch.bab === q.bab);
       if (idx >= 0) {
         state.activeChapterIdx = idx;
+        saveLastPosition({ section: "belajar", belajarTab: "modul", chapterIdx: idx });
         switchBelajarTab("modul");
         navigateTo("belajar");
       }
@@ -1402,14 +1757,16 @@ function renderCurrentQuestion() {
 function renderQuestionGrid() {
   const grid = document.getElementById("question-grid");
   const prog = getCourseProg(state.activeCourse.id);
-  const showCorrection = state.quizMode === "instant" || state.examSubmitted;
+  const isExamMode = state.quizMode === "exam";
+  const showCorrection = !isExamMode || state.examSubmitted;
 
   grid.innerHTML = state.filteredQuestions
     .map((q, idx) => {
-      const chosen = getAnswer(prog, q);
+      const chosen = isExamMode ? state.examAnswers[q._key] : getAnswer(prog, q);
       let cls = "q-dot";
       if (idx === state.activeQIdx) cls += " current";
       if (isFlaggedQ(prog, q)) cls += " flagged";
+      if (isBookmarkedQ(prog, q)) cls += " bookmarked";
       if (chosen !== undefined) {
         if (!showCorrection) cls += " answered";
         else cls += chosen === q.answer_index ? " correct" : " wrong";
@@ -1421,6 +1778,7 @@ function renderQuestionGrid() {
   grid.querySelectorAll(".q-dot").forEach((b) => {
     b.addEventListener("click", () => {
       state.activeQIdx = Number(b.dataset.qidx);
+      saveLastPosition({ section: "latihan", latihanTab: "quiz" });
       renderCurrentQuestion();
       renderQuestionGrid();
     });
@@ -1444,35 +1802,176 @@ function stopExamTimer() {
 }
 
 function updateExamTimerUI() {
-  const m = String(Math.floor(state.examSecondsLeft / 60)).padStart(2, "0");
-  const s = String(state.examSecondsLeft % 60).padStart(2, "0");
+  const m = String(Math.floor(Math.max(0, state.examSecondsLeft) / 60)).padStart(2, "0");
+  const s = String(Math.max(0, state.examSecondsLeft) % 60).padStart(2, "0");
   document.getElementById("exam-timer").textContent = `⏱️ ${m}:${s}`;
 }
 
 function finishExam() {
   stopExamTimer();
+  const c = state.activeCourse;
+  const prog = getCourseProg(c.id);
+  const g = getGamify();
+
+  state.examQuestions.forEach((q) => {
+    const chosen = state.examAnswers[q._key];
+    if (chosen === undefined) return;
+    const firstAttempt = getAnswer(prog, q) === undefined;
+    setAnswer(prog, q, chosen);
+    if (firstAttempt) {
+      if (chosen === q.answer_index) {
+        g.correctRun++;
+        if (g.correctRun > g.maxCorrectRun) g.maxCorrectRun = g.correctRun;
+        awardXp(`q_${c.id}_${q._key}`, 10);
+      } else {
+        g.correctRun = 0;
+      }
+    }
+    checkStageCompletionCelebration(c, prog, q._stage);
+  });
+
   state.examActive = false;
   state.examSubmitted = true;
+  state.activeQIdx = 0;
+  saveProgress();
+  refreshGamifyUI();
+  updateCourseTopbar();
   document.getElementById("btn-start-exam").textContent = "Mulai Ujian Baru";
+  launchSubtleConfetti();
   renderCurrentQuestion();
   renderQuestionGrid();
-  navigateTo("statistik");
 }
 
-/* FLASHCARD */
+/* FLASHCARD: POIN INTI + HAFAL/BELUM + SPACED REPETITION */
+function buildChapterPointCards(course) {
+  const cards = [];
+  (course.chapters || []).forEach((ch) => {
+    const pts = ch.summary_points && ch.summary_points.length ? ch.summary_points : [ch.title];
+    pts.forEach((pt, idx) => {
+      cards.push({
+        cardKey: `${ch.bab}::p${idx}`,
+        bab: ch.bab,
+        title: ch.title,
+        uas_priority: ch.uas_priority,
+        pointIdx: idx,
+        pointTotal: pts.length,
+        pointText: pt,
+        formulas: ch.formulas_or_syntax || [],
+        traps: ch.common_traps || [],
+      });
+    });
+  });
+  return cards;
+}
+
 function initFlashcardFilters() {
   const c = state.activeCourse;
   const sel = document.getElementById("fc-bab-filter");
   const babs = (c.chapters || []).map((ch) => ch.bab);
   sel.innerHTML = `<option value="all">Semua Bab</option>` + babs.map((b) => `<option value="${escHtml(b)}">${escHtml(b)}</option>`).join("");
+  const modeSel = document.getElementById("fc-mode-filter");
+  if (modeSel) modeSel.value = "all";
   buildFlashcardList();
 }
 
 function buildFlashcardList() {
   const c = state.activeCourse;
+  const prog = getCourseProg(c.id);
   const bab = document.getElementById("fc-bab-filter").value;
-  state.fcList = (c.chapters || []).filter((ch) => bab === "all" || ch.bab === bab);
+  const deckMode = document.getElementById("fc-mode-filter")?.value || "all";
+  const allCards = buildChapterPointCards(c).filter((card) => bab === "all" || card.bab === bab);
+  const fcProg = prog.flashcards || {};
+
+  const hafalCount = allCards.filter((card) => fcProg[card.cardKey]?.status === "hafal").length;
+  const statsPill = document.getElementById("fc-stats-pill");
+  if (statsPill) statsPill.textContent = `Hafal: ${hafalCount}/${allCards.length}`;
+
+  let filtered = allCards.filter((card) => {
+    const st = fcProg[card.cardKey]?.status || "new";
+    if (deckMode === "due") return st !== "hafal";
+    if (deckMode === "hafal") return st === "hafal";
+    return true;
+  });
+
+  // Simple spaced repetition priority:
+  // "belum" (higher wrongCount first) -> "new" -> "hafal" (lower box first)
+  const weightOf = (card) => {
+    const info = fcProg[card.cardKey];
+    if (!info || info.status === "new") return 50;
+    if (info.status === "belum") return -(info.wrongCount || 1) * 10;
+    return 100 + (info.box || 1) * 10;
+  };
+  filtered.sort((a, b) => weightOf(a) - weightOf(b));
+
+  // Boost missed cards so they appear more frequently in "all" mode
+  if (deckMode === "all" && filtered.length >= 4) {
+    const missed = filtered.filter((card) => fcProg[card.cardKey]?.status === "belum");
+    if (missed.length) {
+      const augmented = [];
+      let mIdx = 0;
+      filtered.forEach((card, i) => {
+        augmented.push(card);
+        if ((i + 1) % 4 === 0 && mIdx < missed.length) {
+          augmented.push(missed[mIdx++]);
+        }
+      });
+      filtered = augmented;
+    }
+  }
+
+  state.fcList = filtered;
   state.fcIdx = 0;
+  renderFlashcard();
+}
+
+function rateCurrentFlashcard(nextStatus) {
+  if (!state.fcList.length || !state.activeCourse) return;
+  const c = state.activeCourse;
+  const prog = getCourseProg(c.id);
+  if (!prog.flashcards) prog.flashcards = {};
+  const card = state.fcList[state.fcIdx];
+  const prev = prog.flashcards[card.cardKey] || { status: "new", box: 1, wrongCount: 0, seenCount: 0 };
+
+  if (nextStatus === "belum") {
+    prog.flashcards[card.cardKey] = {
+      status: "belum",
+      box: 1,
+      wrongCount: (prev.wrongCount || 0) + 1,
+      seenCount: (prev.seenCount || 0) + 1,
+      lastReview: Date.now(),
+    };
+    // Re-insert missed card 3 steps ahead for immediate spaced repetition
+    if (state.fcList.length > 1) {
+      const insertPos = Math.min(state.fcList.length, state.fcIdx + 3);
+      state.fcList.splice(insertPos, 0, card);
+    }
+  } else {
+    prog.flashcards[card.cardKey] = {
+      status: "hafal",
+      box: Math.min(3, (prev.box || 0) + 1),
+      wrongCount: prev.wrongCount || 0,
+      seenCount: (prev.seenCount || 0) + 1,
+      lastReview: Date.now(),
+    };
+    awardXp(`fc_${c.id}_${card.cardKey}`, 5);
+  }
+  saveProgress();
+  refreshGamifyUI();
+
+  // Update stats pill & move to next card
+  const allCards = buildChapterPointCards(c).filter((item) => {
+    const bab = document.getElementById("fc-bab-filter").value;
+    return bab === "all" || item.bab === bab;
+  });
+  const hafalCount = allCards.filter((item) => prog.flashcards[item.cardKey]?.status === "hafal").length;
+  const statsPill = document.getElementById("fc-stats-pill");
+  if (statsPill) statsPill.textContent = `Hafal: ${hafalCount}/${allCards.length}`;
+
+  if (state.fcIdx < state.fcList.length - 1) {
+    state.fcIdx++;
+  } else {
+    state.fcIdx = 0;
+  }
   renderFlashcard();
 }
 
@@ -1480,16 +1979,45 @@ function renderFlashcard() {
   const box = document.getElementById("flashcard-box");
   if (!box) return;
   box.classList.remove("flipped");
-  if (!state.fcList.length) return;
-  const ch = state.fcList[state.fcIdx];
-  document.getElementById("fc-tag").textContent = `${ch.bab} • Prioritas UAS: ${ch.uas_priority}`;
-  document.getElementById("fc-front-title").textContent = ch.title;
-  document.getElementById("fc-front-body").innerHTML = `<ul>${(ch.summary_points || []).map((p) => `<li>${renderInlineMd(p)}</li>`).join("")}</ul>`;
-  const formulas = (ch.formulas_or_syntax || []).map((f) => `<li>${renderInlineMd(f)}</li>`).join("");
-  const traps = (ch.common_traps || []).map((t) => `<li>${renderInlineMd(t)}</li>`).join("");
+
+  const statusBadge = document.getElementById("fc-status-badge");
+  if (!state.fcList.length) {
+    document.getElementById("fc-tag").textContent = "Deck Kosong";
+    document.getElementById("fc-front-title").textContent = "Tidak ada kartu pada filter ini";
+    document.getElementById("fc-front-body").innerHTML = `<p class="muted">Semua kartu pada filter ini sudah selesai atau belum ditandai. Coba pilih mode deck <strong>Semua Poin Inti</strong>.</p>`;
+    document.getElementById("fc-back-body").innerHTML = "";
+    if (statusBadge) { statusBadge.textContent = "✅ Selesai"; statusBadge.className = "fc-status-pill hafal"; }
+    document.getElementById("fc-counter").textContent = "0 / 0";
+    return;
+  }
+
+  const c = state.activeCourse;
+  const prog = getCourseProg(c.id);
+  const card = state.fcList[state.fcIdx];
+  const info = (prog.flashcards && prog.flashcards[card.cardKey]) || { status: "new", box: 1, wrongCount: 0 };
+
+  if (statusBadge) {
+    if (info.status === "hafal") {
+      statusBadge.textContent = `✅ Hafal (Kotak ${info.box || 1})`;
+      statusBadge.className = "fc-status-pill hafal";
+    } else if (info.status === "belum") {
+      statusBadge.textContent = `🔁 Belum Hafal (${info.wrongCount || 1}× ulang)`;
+      statusBadge.className = "fc-status-pill belum";
+    } else {
+      statusBadge.textContent = "⚪ Baru";
+      statusBadge.className = "fc-status-pill";
+    }
+  }
+
+  document.getElementById("fc-tag").textContent = `${card.bab} • Poin ${card.pointIdx + 1}/${card.pointTotal} • UAS: ${card.uas_priority}`;
+  document.getElementById("fc-front-title").textContent = card.title;
+  document.getElementById("fc-front-body").innerHTML = `<div class="fc-point-focus">${renderInlineMd(card.pointText)}</div>`;
+  const formulas = (card.formulas || []).map((f) => `<li>${renderInlineMd(f)}</li>`).join("");
+  const traps = (card.traps || []).map((t) => `<li>${renderInlineMd(t)}</li>`).join("");
   document.getElementById("fc-back-body").innerHTML = `
-    ${formulas ? `<h4>Rumus / Sintaks</h4><ul>${formulas}</ul>` : ""}
+    ${formulas ? `<h4>Rumus / Sintaks (${escHtml(card.bab)})</h4><ul>${formulas}</ul>` : ""}
     ${traps ? `<h4>Jebakan UAS</h4><ul>${traps}</ul>` : ""}
+    ${!formulas && !traps ? `<p class="muted">Pahami konsep inti ini beserta penerapannya pada contoh di Modul Baca.</p>` : ""}
   `;
   document.getElementById("fc-counter").textContent = `${state.fcIdx + 1} / ${state.fcList.length}`;
   applyMath(box);
@@ -1524,6 +2052,7 @@ function renderPracticeSidebar() {
     el.addEventListener("click", () => {
       state.sandboxMode = false;
       state.activeLabIdx = Number(el.dataset.lidx);
+      saveLastPosition({ section: "latihan", latihanTab: "practice", labIdx: state.activeLabIdx });
       renderPracticeSidebar();
       renderPracticeStage();
     });
@@ -1984,6 +2513,297 @@ function openSessionsModal() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    });
+  });
+}
+
+/* PENCARIAN GLOBAL & PENYOROTAN HASIL */
+function escapeRegex(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildHighlightedSnippet(rawText, query, maxLen = 155) {
+  const clean = String(rawText || "")
+    .replace(/\$\$[\s\S]*?\$\$/g, " [rumus] ")
+    .replace(/[`*_#>\[\]]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return "";
+  if (!query) return escHtml(clean.slice(0, maxLen)) + (clean.length > maxLen ? "..." : "");
+  const lower = clean.toLowerCase();
+  const qLower = query.toLowerCase();
+  const idx = lower.indexOf(qLower);
+  let slice = "";
+  if (idx < 0) {
+    slice = clean.slice(0, maxLen) + (clean.length > maxLen ? "..." : "");
+  } else {
+    const start = Math.max(0, idx - 45);
+    const end = Math.min(clean.length, start + maxLen);
+    slice = (start > 0 ? "..." : "") + clean.slice(start, end) + (end < clean.length ? "..." : "");
+  }
+  const safe = escHtml(slice);
+  const re = new RegExp(`(${escapeRegex(escHtml(query))})`, "gi");
+  return safe.replace(re, `<mark class="search-hl">$1</mark>`);
+}
+
+function highlightAndScrollIfActive(rootEl) {
+  const query = (state.activeSearchHighlight || "").trim();
+  if (!rootEl || query.length < 2) return;
+  const re = new RegExp(`(${escapeRegex(query)})`, "gi");
+  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      const p = node.parentElement;
+      if (!p) return NodeFilter.FILTER_REJECT;
+      if (p.closest("script, style, textarea, input, select, button, mark, .katex, .q-note-box")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return re.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+  const nodes = [];
+  let cur;
+  while ((cur = walker.nextNode())) nodes.push(cur);
+  let firstMark = null;
+  nodes.forEach((txtNode) => {
+    re.lastIndex = 0;
+    const parts = txtNode.nodeValue.split(re);
+    if (parts.length <= 1) return;
+    const frag = document.createDocumentFragment();
+    parts.forEach((part) => {
+      if (!part) return;
+      if (part.toLowerCase() === query.toLowerCase()) {
+        const mark = document.createElement("mark");
+        mark.className = "search-hl";
+        mark.textContent = part;
+        if (!firstMark) firstMark = mark;
+        frag.appendChild(mark);
+      } else {
+        frag.appendChild(document.createTextNode(part));
+      }
+    });
+    txtNode.parentNode.replaceChild(frag, txtNode);
+  });
+  if (firstMark) {
+    setTimeout(() => {
+      firstMark.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  }
+}
+
+function openGlobalSearchModal() {
+  const modal = document.getElementById("global-search-modal");
+  if (!modal) return;
+  modal.style.display = "grid";
+  runGlobalSearch();
+  setTimeout(() => {
+    const inp = document.getElementById("global-search-input");
+    if (inp) { inp.focus(); inp.select(); }
+  }, 30);
+}
+
+function closeGlobalSearchModal() {
+  const modal = document.getElementById("global-search-modal");
+  if (modal) modal.style.display = "none";
+}
+
+function collectGlobalSearchHits(query, scope, currentOnly) {
+  const qLower = query.toLowerCase();
+  const courses = currentOnly && state.activeCourse
+    ? [state.activeCourse]
+    : state.index.map((item) => state.coursesCache[item.id]).filter(Boolean);
+  const hits = [];
+
+  courses.forEach((c) => {
+    const theme = getCourseTheme(c.id);
+    const prog = getCourseProg(c.id);
+    const shortCourse = c.title.split("(")[0].trim();
+
+    if (scope === "all" || scope === "modul") {
+      (c.chapters || []).forEach((ch, chapIdx) => {
+        const formulasTxt = (ch.formulas_or_syntax || []).join(" | ");
+        const summaryTxt = (ch.summary_points || []).join(" | ");
+        const trapsTxt = (ch.common_traps || []).join(" | ");
+        const fullTxt = `${ch.bab} ${ch.title} ${summaryTxt} ${formulasTxt} ${trapsTxt} ${ch.content_md || ""}`;
+        if (fullTxt.toLowerCase().includes(qLower)) {
+          const isTermHit = formulasTxt.toLowerCase().includes(qLower) || summaryTxt.toLowerCase().includes(qLower);
+          const snippetSrc = isTermHit
+            ? (formulasTxt.toLowerCase().includes(qLower) ? formulasTxt : summaryTxt)
+            : `${ch.title} — ${ch.content_md || summaryTxt}`;
+          hits.push({
+            score: (`${ch.bab} ${ch.title}`).toLowerCase().includes(qLower) ? 100 : (isTermHit ? 85 : 60),
+            kind: isTermHit ? "Istilah / Poin Inti" : "Modul Baca",
+            emoji: theme.emoji,
+            courseId: c.id,
+            courseTitle: shortCourse,
+            title: `${ch.bab}: ${ch.title}`,
+            snippet: buildHighlightedSnippet(snippetSrc, query),
+            section: "belajar",
+            belajarTab: "modul",
+            chapterIdx: chapIdx,
+          });
+        }
+      });
+
+      (c.uas_gaps || []).forEach((g) => {
+        const gTxt = `${g.topic} ${g.why_important || ""} ${g.content_md || ""}`;
+        if (gTxt.toLowerCase().includes(qLower)) {
+          hits.push({
+            score: g.topic.toLowerCase().includes(qLower) ? 90 : 58,
+            kind: "Tambahan UAS",
+            emoji: theme.emoji,
+            courseId: c.id,
+            courseTitle: shortCourse,
+            title: g.topic,
+            snippet: buildHighlightedSnippet(`${g.why_important || ""} ${g.content_md || ""}`, query),
+            section: "belajar",
+            belajarTab: "uas-gaps",
+          });
+        }
+      });
+    }
+
+    if (scope === "all" || scope === "soal") {
+      const qs = getStageQuestions(c, "all");
+      qs.forEach((q) => {
+        const hay = `${q.bab} ${q.question} ${(q.options || []).join(" ")} ${q.explanation || ""} ${q.remedial_section || ""}`;
+        if (hay.toLowerCase().includes(qLower)) {
+          hits.push({
+            score: q.question.toLowerCase().includes(qLower) ? 80 : 50,
+            kind: `Soal T${q._stage} #${q.id}`,
+            emoji: theme.emoji,
+            courseId: c.id,
+            courseTitle: shortCourse,
+            title: `${q.bab} — Soal #${q.id} (Tahap ${q._stage})`,
+            snippet: buildHighlightedSnippet(`${q.question} ${q.explanation || ""}`, query),
+            section: "latihan",
+            latihanTab: "quiz",
+            stage: String(q._stage),
+            qKey: q._key,
+          });
+        }
+      });
+    }
+
+    if (scope === "all" || scope === "notes") {
+      (c.chapters || []).forEach((ch, chapIdx) => {
+        const note = (prog.notes && prog.notes[ch.bab]) || "";
+        if (!note.trim()) return;
+        if (!query || note.toLowerCase().includes(qLower) || ch.bab.toLowerCase().includes(qLower)) {
+          hits.push({
+            score: 75,
+            kind: "Catatan Bab",
+            emoji: theme.emoji,
+            courseId: c.id,
+            courseTitle: shortCourse,
+            title: `Catatan ${ch.bab}: ${ch.title}`,
+            snippet: buildHighlightedSnippet(note, query),
+            section: "belajar",
+            belajarTab: "modul",
+            chapterIdx: chapIdx,
+          });
+        }
+      });
+
+      const qs = getStageQuestions(c, "all");
+      qs.forEach((q) => {
+        const bm = isBookmarkedQ(prog, q);
+        const qn = getQuestionNote(prog, q);
+        if (!bm && !qn) return;
+        const txt = `${q.bab} ${q.question} ${qn}`;
+        if (!query || txt.toLowerCase().includes(qLower)) {
+          hits.push({
+            score: bm ? 82 : 70,
+            kind: bm ? "🔖 Bookmark Soal" : "Catatan Soal",
+            emoji: theme.emoji,
+            courseId: c.id,
+            courseTitle: shortCourse,
+            title: `${bm ? "🔖 " : ""}Soal #${q.id} (${q.bab}, T${q._stage})`,
+            snippet: buildHighlightedSnippet(qn || q.question, query),
+            section: "latihan",
+            latihanTab: "quiz",
+            stage: String(q._stage),
+            qKey: q._key,
+          });
+        }
+      });
+    }
+  });
+
+  hits.sort((a, b) => b.score - a.score);
+  return hits;
+}
+
+function runGlobalSearch() {
+  const inputEl = document.getElementById("global-search-input");
+  const resultsEl = document.getElementById("global-search-results");
+  const countEl = document.getElementById("global-search-count");
+  if (!inputEl || !resultsEl) return;
+
+  const query = inputEl.value.trim();
+  const currentOnly = !!document.getElementById("gs-current-only")?.checked;
+  const scope = state.gsScope || "all";
+
+  if (query.length < 2 && scope !== "notes") {
+    if (countEl) countEl.textContent = "Ketik minimal 2 huruf untuk mencari lintas modul, soal, dan istilah.";
+    resultsEl.innerHTML = `
+      <div class="empty-state">
+        <h4>Cari Lintas 13 Mata Kuliah</h4>
+        <p>Ketik istilah seperti <code>Bayes</code>, <code>normalisasi</code>, <code>chi-square</code>, atau buka tab <strong>🔖 Catatan &amp; Bookmark</strong> di atas.</p>
+      </div>`;
+    return;
+  }
+
+  const allHits = collectGlobalSearchHits(query, scope, currentOnly);
+  const shown = allHits.slice(0, 45);
+  if (countEl) {
+    countEl.textContent = `Ditemukan ${allHits.length} hasil${allHits.length > 45 ? " (menampilkan 45 teratas)" : ""}${query ? ` untuk "${query}"` : ""}.`;
+  }
+
+  if (!shown.length) {
+    resultsEl.innerHTML = `
+      <div class="empty-state">
+        <h4>Tidak ada hasil yang cocok</h4>
+        <p>${scope === "notes" ? "Belum ada bookmark soal atau catatan pribadi yang tersimpan." : `Coba kata kunci lain atau nonaktifkan filter "Matkul aktif saja".`}</p>
+      </div>`;
+    return;
+  }
+
+  resultsEl.innerHTML = shown
+    .map(
+      (h, idx) => `
+    <div class="gs-hit-card" data-gs-idx="${idx}" tabindex="0" role="button">
+      <div class="gs-hit-top">
+        <span class="c-badge pastel">${h.emoji} ${escHtml(h.courseTitle)}</span>
+        <span class="c-badge">${escHtml(h.kind)}</span>
+      </div>
+      <div class="gs-hit-title">${query ? buildHighlightedSnippet(h.title, query, 120) : escHtml(h.title)}</div>
+      <div class="gs-hit-snippet">${h.snippet}</div>
+    </div>`
+    )
+    .join("");
+
+  resultsEl.querySelectorAll(".gs-hit-card").forEach((el) => {
+    const activate = () => {
+      const hit = shown[Number(el.dataset.gsIdx)];
+      if (!hit) return;
+      state.activeSearchHighlight = query.length >= 2 ? query : "";
+      closeGlobalSearchModal();
+      openCourse(hit.courseId, hit.section, {
+        preservePosition: false,
+        keepHighlight: true,
+        belajarTab: hit.belajarTab,
+        latihanTab: hit.latihanTab,
+        chapterIdx: hit.chapterIdx,
+        stage: hit.stage,
+        babFilter: "all",
+        quizMode: "instant",
+        qKey: hit.qKey,
+      });
+    };
+    el.addEventListener("click", activate);
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") activate();
     });
   });
 }

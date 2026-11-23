@@ -51,16 +51,27 @@
      - `node --check app.js` dan `node --check sw.js` lulus; `verify_pwa.py` memverifikasi 21 target precache dan `manifest.json`; `0` error konsol dan `0` issue Chromium pada hard reload dan normal reload dengan Service Worker `portal-v4`.
      - Teruji di Desktop & Mobile `390x844`: `Beranda` (kartu matkul & filter semester), `Belajar` (modul bab, `Tandai Paham` +20 XP, `Tambahan UAS`, `Flashcard`), `Latihan` (kunjungan langsung mengisi dropdown tahap/bab, 1 soal per layar, umpan balik mint/pink + XP, drawer `#quiz-navigator-drawer` buka-tutup, `Lab Praktek & Pyodide`), `Statistik` (lencana, ekspor `.md`), `Pengaturan` (toggle tema Terang/Gelap/Sistem & status PWA `Aktif (portal-v4 siap offline)`), tanpa *horizontal overflow* di `390x844` serta chip `Sem 1` rapi satu baris.
 
+9. **Penambahan 5 Fitur Belajar Interaktif & Pembaruan Cache (`portal-v5`)**:
+   - **Flashcard Poin Inti & Spaced Repetition**: Flashcard dibentuk dari tiap butir `summary_points` per bab dengan penanda **Belum Hafal** / **Sudah Hafal (+5 XP)** dan filter deck (`Semua Poin Inti`, `Hanya Belum Hafal`, `Sudah Hafal`); kartu yang belum hafal diprioritaskan di antrean dan disisipkan kembali lebih sering agar cepat terkuasai (`prog.flashcards` di `localStorage`).
+   - **4 Mode Soal**: **Latihan per Bab**, **Latihan Acak** (+ tombol acak ulang), **Remedial (Soal Salah)**, dan **Simulasi UAS** dengan **Jumlah Soal** (`10`, `20`, `30`, `50`, `Semua`) & **Durasi Timer** (`15`, `30`, `60`, `90` Menit) yang dapat diatur, sementara koreksi dan `<details>` pembahasan baru terbuka setelah `Selesaikan & Koreksi` atau timer habis.
+   - **Bookmark Soal & Catatan Pribadi per Bab/Soal**: Tombol **Bookmark (`B`)** + filter status `🔖 Di-bookmark` + penanda grid soal, serta kolom **Catatan Pribadi Soal** (`prog.questionNotes`) mendampingi **Catatan Pribadi Bab** (`prog.notes`) dengan *autosave* ke `localStorage`.
+   - **Pencarian Global dengan Hasil Disorot**: Tombol **Cari (`Ctrl+K`)** di topbar mencari lintas **13 mata kuliah** (`Modul & Istilah`, `Tambahan UAS`, `Bank Soal`, serta `Catatan & Bookmark`), menyorot kata cocok dengan `<mark class="search-hl">` di daftar hasil maupun langsung di dalam modul/soal saat dibuka.
+   - **Lanjut dari Posisi Terakhir**: Menyimpan posisi aktif (`__lastPosition` dan `prog.lastState` per mata kuliah: `section`, tab, indeks bab/lab, tahap, mode, dan `qKey`), menampilkannya pada tombol **Lanjut** di Beranda dan memulihkan langsung posisi tersebut.
+   - **Service Worker `portal-v5`**: Versi cache [sw.js](sw.js) dinaikkan ke `portal-v5` / `portal-runtime-v5` tanpa mengubah satu pun file di folder `data/`.
+   - **Hasil Uji Desktop (`1280x800`) & Mobile (`390x844`) di Chrome (`http://localhost:8000`)**:
+     - `node --check app.js` dan `node --check sw.js` lulus; `verify_pwa.py` memverifikasi 21 target precache dan `manifest.json`; `git status -s -- data/` bersih.
+     - Chrome QA mengonfirmasi `Aktif (portal-v5 siap offline)`, `0` error konsol & `0` issue Chromium, antrean flashcard pengulangan berjarak (`44` → `45` kartu saat ditandai Belum Hafal, `+5 XP` & persistensi `Hafal: 1/44`), seluruh 4 mode soal (`Acak`, `Remedial`, `Simulasi UAS` `10 Soal`/`15 Menit` menyembunyikan pembahasan hingga selesai lalu membuka koreksi & banner skor), bookmark + catatan soal/bab bertahan setelah reload, pencarian global `"Bayes"` menyorot `<mark>` di daftar maupun isi modul `Statistika — Sesi 2`, tombol `▶ Lanjut` memulihkan posisi tepat ke bab/soal terakhir, serta layout Mobile `390x844` bebas overflow.
+
 ---
 
 ### Hal yang Tidak Dapat Berjalan Tanpa Server / Keterbatasan Mode Statis
 - **Pustaka Python di luar `stdlib + numpy + pandas`**: Sebanyak 96 lab yang mengimpor `scipy`, `scikit-learn`, atau `matplotlib` tidak dieksekusi di browser dan disajikan sebagai contoh baca-saja beserta output yang diharapkan.
 - **Penyimpanan ke folder disk server secara langsung**: Digantikan oleh unduhan browser (`Blob` + `<a download>`) dan riwayat `localStorage`.
 - **Sinkronisasi lintas perangkat**: Karena tanpa database/server, data `localStorage` hanya tersimpan di browser dan perangkat yang digunakan saat itu.
-- **Akses Offline Penuh Sebelum Kunjungan Pertama**: Aset lokal (`index.html`, `styles.css`, `app.js`, `manifest.json`, ikon, dan seluruh `data/`) di-*precache* oleh `sw.js`, sedangkan CDN (KaTeX, Marked.js, Pyodide, Google Fonts) di-*cache* ke `portal-runtime-v4` setelah pertama kali dimuat.
+- **Akses Offline Penuh Sebelum Kunjungan Pertama**: Aset lokal (`index.html`, `styles.css`, `app.js`, `manifest.json`, ikon, dan seluruh `data/`) di-*precache* oleh `sw.js`, sedangkan CDN (KaTeX, Marked.js, Pyodide, Google Fonts) di-*cache* ke `portal-runtime-v5` setelah pertama kali dimuat.
 
 ---
 
 ### Langkah Berikutnya
-1. Commit dan push pembaruan redesign Pastel Kalem ini ke repositori GitHub `https://github.com/channotfound-exe/portal-belajar.git` branch `main` agar live di GitHub Pages.
-2. *(Opsional)* Tambahkan fitur ekspor/impor cadangan progres `localStorage` dalam format `.json` apabila ingin memindahkan progres antar perangkat.
+1. Commit dan push pembaruan 5 fitur baru + tema Pastel Kalem (`portal-v5`) ini ke repositori GitHub `https://github.com/channotfound-exe/portal-belajar.git` branch `main` agar live di GitHub Pages.
+2. *(Opsional)* Tambahkan tombol impor cadangan `.json` di `Pengaturan` (melengkapi tombol ekspor cadangan yang sudah tersedia) untuk pemindahan progres antar perangkat.

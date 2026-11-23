@@ -87,6 +87,10 @@
             <svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span>Pasang Aplikasi</span>
           </button>
+          <button id="btn-global-search" class="btn btn-ghost btn-sm" title="Pencarian Global Modul, Soal & Istilah (Ctrl+K)" aria-label="Pencarian Global">
+            <svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>Cari</span>
+          </button>
           <button id="btn-sessions-modal" class="btn btn-ghost btn-sm" title="Riwayat Laporan Sesi MD">
             <svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <span class="hide-xs">Riwayat MD</span>
@@ -200,23 +204,38 @@
           <!-- Subtab: Flashcard -->
           <div id="subtab-flashcard" class="subtab-panel">
             <div class="flashcard-controls">
-              <label>Pilih Bab: <select id="fc-bab-filter"></select></label>
-              <button id="btn-fc-shuffle" class="btn btn-ghost">🔀 Acak Kartu</button>
+              <label>Pilih Bab: <select id="fc-bab-filter" name="fc_bab_filter"></select></label>
+              <label>Deck:
+                <select id="fc-mode-filter" name="fc_mode_filter">
+                  <option value="all">Semua Poin Inti (Prioritas Ulang)</option>
+                  <option value="due">Hanya Belum Hafal</option>
+                  <option value="hafal">Sudah Hafal</option>
+                </select>
+              </label>
+              <button id="btn-fc-shuffle" class="btn btn-ghost btn-sm">🔀 Acak</button>
+              <span id="fc-stats-pill" class="score-pill">Hafal: 0/0</span>
             </div>
             <div class="flashcard-stage">
               <div id="flashcard-box" class="flashcard" tabindex="0" role="button" aria-label="Klik untuk membalik kartu">
                 <div class="flashcard-inner">
                   <div class="flashcard-front">
-                    <span class="fc-tag" id="fc-tag"></span>
+                    <div class="fc-front-meta">
+                      <span class="fc-tag" id="fc-tag"></span>
+                      <span class="fc-status-pill" id="fc-status-badge">⚪ Baru</span>
+                    </div>
                     <h3 id="fc-front-title"></h3>
-                    <div id="fc-front-body"></div>
+                    <div id="fc-front-body" class="fc-front-body"></div>
                     <div class="fc-hint">Ketuk kartu untuk melihat rumus &amp; jebakan UAS ↻</div>
                   </div>
                   <div class="flashcard-back">
-                    <span class="fc-tag">Ringkasan Kunci &amp; Jebakan UAS</span>
+                    <span class="fc-tag">Rumus, Konteks &amp; Jebakan UAS</span>
                     <div id="fc-back-body"></div>
                   </div>
                 </div>
+              </div>
+              <div class="fc-rate-bar">
+                <button id="btn-fc-mark-belum" class="btn fc-btn-belum">🔁 Belum Hafal (Ulang Lebih Sering)</button>
+                <button id="btn-fc-mark-hafal" class="btn fc-btn-hafal">✅ Sudah Hafal (+5 XP)</button>
               </div>
               <div class="fc-nav">
                 <button id="btn-fc-prev" class="btn btn-ghost">← Sebelumnya</button>
@@ -239,10 +258,18 @@
           <div id="subtab-quiz" class="subtab-panel active">
             <div class="quiz-controls-card">
               <div class="quiz-filters">
-                <label>Tahap: <select id="quiz-filter-stage"></select></label>
-                <label>Bab: <select id="quiz-filter-bab"></select></label>
+                <label>Mode:
+                  <select id="quiz-mode" name="quiz_mode">
+                    <option value="instant">Latihan per Bab</option>
+                    <option value="random">Latihan Acak</option>
+                    <option value="remedial">Remedial (Soal Salah)</option>
+                    <option value="exam">Simulasi UAS (Timer)</option>
+                  </select>
+                </label>
+                <label>Tahap: <select id="quiz-filter-stage" name="quiz_filter_stage"></select></label>
+                <label>Bab: <select id="quiz-filter-bab" name="quiz_filter_bab"></select></label>
                 <label>Prioritas UAS:
-                  <select id="quiz-filter-priority">
+                  <select id="quiz-filter-priority" name="quiz_filter_priority">
                     <option value="all">Semua</option>
                     <option value="Sangat Tinggi">Sangat Tinggi</option>
                     <option value="Tinggi">Tinggi</option>
@@ -250,24 +277,39 @@
                   </select>
                 </label>
                 <label>Status:
-                  <select id="quiz-filter-status">
+                  <select id="quiz-filter-status" name="quiz_filter_status">
                     <option value="all">Semua</option>
                     <option value="unanswered">Belum Dijawab</option>
-                    <option value="wrong">Remedial (Salah)</option>
-                    <option value="flagged">Ditandai Sulit</option>
+                    <option value="wrong">Pernah Salah</option>
+                    <option value="bookmarked">🔖 Di-bookmark</option>
+                    <option value="flagged">🚩 Ditandai Sulit</option>
                   </select>
                 </label>
-                <label>Mode:
-                  <select id="quiz-mode">
-                    <option value="instant">Latihan (Koreksi Langsung)</option>
-                    <option value="exam">Simulasi Ujian (Timer 60m)</option>
+              </div>
+              <div id="exam-config-bar" class="exam-config-bar" style="display:none;">
+                <label>Jumlah Soal:
+                  <select id="exam-count-select" name="exam_count_select">
+                    <option value="10">10 Soal</option>
+                    <option value="20">20 Soal</option>
+                    <option value="30">30 Soal</option>
+                    <option value="50" selected>50 Soal</option>
+                    <option value="all">Semua Tersedia</option>
+                  </select>
+                </label>
+                <label>Durasi:
+                  <select id="exam-duration-select" name="exam_duration_select">
+                    <option value="15">15 Menit</option>
+                    <option value="30">30 Menit</option>
+                    <option value="60" selected>60 Menit</option>
+                    <option value="90">90 Menit</option>
                   </select>
                 </label>
               </div>
               <div class="quiz-actions-top">
                 <span id="quiz-live-score" class="score-pill">Skor: 0/0</span>
                 <div id="exam-timer" class="timer-pill" style="display:none;">⏱️ 60:00</div>
-                <button id="btn-start-exam" class="btn btn-primary btn-sm" style="display:none;">Mulai Ujian</button>
+                <button id="btn-start-exam" class="btn btn-primary btn-sm" style="display:none;">Mulai Simulasi UAS</button>
+                <button id="btn-reshuffle-q" class="btn btn-ghost btn-sm" style="display:none;">🔀 Acak Ulang</button>
                 <button id="btn-focus-uas" class="btn btn-ghost btn-sm" title="Filter hanya prioritas UAS Sangat Tinggi">🎯 Fokus UAS</button>
                 <button id="btn-toggle-qgrid" class="btn btn-ghost btn-sm">🗺 Nomor Soal</button>
                 <button id="btn-reset-quiz" class="btn btn-ghost btn-sm">↺ Reset</button>
@@ -416,6 +458,36 @@
         <span>Pengaturan</span>
       </button>
     </nav>
+  </div>
+
+  <!-- MODAL PENCARIAN GLOBAL -->
+  <div id="global-search-modal" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-label="Pencarian Global">
+    <div class="modal-backdrop" id="gs-backdrop"></div>
+    <div class="modal-dialog gs-dialog">
+      <div class="modal-header">
+        <h3>🔍 Pencarian Global (Modul, Soal &amp; Istilah)</h3>
+        <button id="btn-close-gs" class="btn btn-ghost btn-sm" aria-label="Tutup Pencarian">✕</button>
+      </div>
+      <div class="gs-controls">
+        <div class="gs-input-row">
+          <input type="search" id="global-search-input" aria-label="Kata kunci pencarian global" placeholder="Ketik topik, rumus, istilah, atau potongan soal (min. 2 huruf)..." />
+          <label class="gs-scope-check"><input type="checkbox" id="gs-current-only" /> Matkul aktif saja</label>
+        </div>
+        <div class="gs-tabs" id="gs-scope-tabs">
+          <button class="pill active" data-gs-type="all">Semua</button>
+          <button class="pill" data-gs-type="modul">📖 Modul &amp; Istilah</button>
+          <button class="pill" data-gs-type="soal">📝 Bank Soal</button>
+          <button class="pill" data-gs-type="notes">🔖 Catatan &amp; Bookmark</button>
+        </div>
+        <div class="muted" id="global-search-count" style="font-size:13px;"></div>
+      </div>
+      <div class="modal-body gs-results" id="global-search-results">
+        <div class="empty-state">
+          <h4>Cari lintas 13 mata kuliah</h4>
+          <p>Ketik kata kunci seperti <code>Bayes</code>, <code>normalisasi</code>, <code>chi-square</code>, atau <code>regresi</code> untuk menyorot dan melompat langsung ke materi/soal.</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- MODAL RIWAYAT SESI MD -->
