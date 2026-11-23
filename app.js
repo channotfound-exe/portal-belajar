@@ -105,12 +105,17 @@ function getGamify() {
       correctRun: 0,
       maxCorrectRun: 0,
       dailyStreak: 1,
+      dailyTarget: 15,
+      dailyLog: {},
       lastDate: "",
       badges: {},
       stageCelebrated: {},
     };
   }
-  return state.progress.__gamify;
+  const g = state.progress.__gamify;
+  if (!g.dailyTarget) g.dailyTarget = 15;
+  if (!g.dailyLog) g.dailyLog = {};
+  return g;
 }
 
 function getSavedReports() {
@@ -118,6 +123,97 @@ function getSavedReports() {
     state.progress.__savedReports = [];
   }
   return state.progress.__savedReports;
+}
+
+function getStudySessions() {
+  if (!Array.isArray(state.progress.__studySessions)) {
+    state.progress.__studySessions = [];
+  }
+  return state.progress.__studySessions;
+}
+
+function getTodayDateKey() {
+  try {
+    return new Date().toLocaleDateString("en-CA");
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function getTodayActivityCount() {
+  const g = getGamify();
+  const today = getTodayDateKey();
+  return (g.dailyLog[today] && g.dailyLog[today].total) || 0;
+}
+
+function recordDailyActivity(kind, courseObj = null, detailLabel = "") {
+  const g = getGamify();
+  const today = getTodayDateKey();
+  if (!g.dailyLog[today]) {
+    g.dailyLog[today] = { questions: 0, labs: 0, chapters: 0, flashcards: 0, total: 0 };
+  }
+  g.dailyLog[today][kind] = (g.dailyLog[today][kind] || 0) + 1;
+  g.dailyLog[today].total = (g.dailyLog[today].total || 0) + 1;
+
+  if (courseObj) {
+    const sessions = getStudySessions();
+    const existing = sessions.find((s) => s.dateKey === today && s.courseId === courseObj.id && s.mode === "Latihan Harian");
+    if (existing) {
+      existing.count = (existing.count || 1) + 1;
+      existing.modified = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+      if (detailLabel) existing.detail = detailLabel;
+    } else {
+      sessions.unshift({
+        dateKey: today,
+        modified: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+        courseId: courseObj.id,
+        courseTitle: courseObj.title.split("(")[0].trim(),
+        mode: "Latihan Harian",
+        score: "-",
+        detail: detailLabel || "Aktivitas belajar harian",
+        count: 1,
+      });
+      if (sessions.length > 40) sessions.length = 40;
+    }
+  }
+
+  saveProgress();
+  renderDailyReminderBanner();
+}
+
+function recordStudySession(entry) {
+  const sessions = getStudySessions();
+  sessions.unshift({
+    dateKey: getTodayDateKey(),
+    modified: new Date().toLocaleString("id-ID"),
+    courseId: entry.courseId,
+    courseTitle: entry.courseTitle,
+    mode: entry.mode,
+    score: entry.score || "-",
+    detail: entry.detail || "",
+    count: entry.count || 1,
+  });
+  if (sessions.length > 40) sessions.length = 40;
+  saveProgress();
+}
+
+function renderDailyReminderBanner() {
+  const banner = document.getElementById("daily-reminder-banner");
+  if (!banner) return;
+  const g = getGamify();
+  const today = getTodayDateKey();
+  const todayCount = getTodayActivityCount();
+
+  if (todayCount > 0 || state.progress.__dismissedReminderDate === today) {
+    banner.style.display = "none";
+    return;
+  }
+
+  const desc = document.getElementById("reminder-desc");
+  if (desc) {
+    desc.textContent = `Target harian Anda: 0 / ${g.dailyTarget} aktivitas. Luangkan 5 menit hari ini agar streak ${g.dailyStreak} hari tetap terjaga!`;
+  }
+  banner.style.display = "flex";
 }
 
 function getLastCourseId() {
@@ -204,7 +300,7 @@ function applyTheme(pref) {
 /* Gamification Logic */
 function touchDailyStreak() {
   const g = getGamify();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayDateKey();
   if (!g.lastDate) {
     g.dailyStreak = 1;
     g.lastDate = today;
@@ -355,7 +451,7 @@ function initPwaControls() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.ready.then((reg) => {
       const swEl = document.getElementById("settings-sw-status");
-      if (swEl) swEl.textContent = reg.active ? "Aktif (portal-v5 siap offline)" : "Terdaftar";
+      if (swEl) swEl.textContent = reg.active ? "Aktif (portal-v6 siap offline)" : "Terdaftar";
     });
   }
 }
@@ -627,6 +723,7 @@ async function init() {
       restoreCourseState(state.coursesCache[defaultId], { preservePosition: true });
     }
     renderDashboard();
+    renderDailyReminderBanner();
     refreshGamifyUI();
     refreshSessionsCount();
   } catch (err) {
@@ -924,15 +1021,93 @@ function bindGlobalEvents() {
     document.getElementById("save-status-msg").textContent = "✓ Teks Markdown disalin ke clipboard.";
   });
 
-  // Settings backup & reset
-  document.getElementById("btn-export-backup-json").addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(state.progress, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `cadangan_progres_portal_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  // Reminder banner & daily target
+  document.getElementById("btn-reminder-start").addEventListener("click", () => {
+    const last = getLastPosition();
+    const targetId = (last && last.courseId && state.coursesCache[last.courseId]) ? last.courseId : (state.activeCourse?.id || state.index[0]?.id);
+    if (targetId) {
+      openCourse(targetId, (last && last.section) || "latihan", { preservePosition: true });
+    }
   });
+  document.getElementById("btn-reminder-dismiss").addEventListener("click", () => {
+    state.progress.__dismissedReminderDate = getTodayDateKey();
+    saveProgress();
+    renderDailyReminderBanner();
+  });
+  document.getElementById("stat-daily-target").addEventListener("change", (e) => {
+    const g = getGamify();
+    g.dailyTarget = Number(e.target.value) || 15;
+    saveProgress();
+    renderAnalyticsTab();
+    renderDailyReminderBanner();
+  });
+
+  // Settings backup (Ekspor + Impor JSON) & reset
+  document.getElementById("btn-export-backup-json").addEventListener("click", () => {
+    const payload = {
+      app: "portal-belajar-sains-data",
+      schema_version: 2,
+      exported_at: new Date().toISOString(),
+      theme_pref: getThemePref(),
+      progress: state.progress,
+    };
+    const filename = `cadangan_progres_portal_${getTodayDateKey()}.json`;
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    const msgEl = document.getElementById("backup-status-msg");
+    if (msgEl) msgEl.textContent = `✓ Cadangan lengkap diekspor (${filename}).`;
+  });
+
+  const importBtn = document.getElementById("btn-import-backup-json");
+  const importInput = document.getElementById("input-import-backup-json");
+  if (importBtn && importInput) {
+    importBtn.addEventListener("click", () => importInput.click());
+    importInput.addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      const msgEl = document.getElementById("backup-status-msg");
+      if (!file) return;
+      try {
+        const raw = await file.text();
+        const parsed = JSON.parse(raw);
+        let importedProg = null;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          if (parsed.app === "portal-belajar-sains-data" && parsed.progress && typeof parsed.progress === "object") {
+            importedProg = parsed.progress;
+            if (parsed.theme_pref) applyTheme(parsed.theme_pref);
+          } else if (parsed.__gamify || parsed.__lastCourseId || parsed.__lastPosition || Object.keys(parsed).some((k) => state.index.some((item) => item.id === k))) {
+            importedProg = parsed;
+          }
+        }
+        if (!importedProg || Array.isArray(importedProg)) {
+          throw new Error("Struktur JSON bukan cadangan Portal Belajar Sains Data.");
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(importedProg));
+        state.progress = loadProgress();
+        touchDailyStreak();
+        if (state.activeCourse) {
+          restoreCourseState(state.activeCourse, { preservePosition: true });
+        }
+        refreshGamifyUI();
+        refreshSessionsCount();
+        renderDashboard();
+        renderDailyReminderBanner();
+        if (state.activeSection === "statistik") renderAnalyticsTab();
+        const xp = getGamify().xp || 0;
+        if (msgEl) msgEl.textContent = `✅ Cadangan berhasil dipulihkan dari ${file.name} (Total XP: ${xp}).`;
+      } catch (err) {
+        if (msgEl) msgEl.textContent = `❌ Gagal mengimpor cadangan JSON: ${err.message}`;
+      } finally {
+        importInput.value = "";
+      }
+    });
+  }
 
   document.getElementById("btn-reset-all-progress").addEventListener("click", () => {
     if (!confirm("Hapus seluruh progres belajar, skor, catatan, bookmark, flashcard, dan XP di browser ini?")) return;
@@ -942,7 +1117,9 @@ function bindGlobalEvents() {
     refreshGamifyUI();
     refreshSessionsCount();
     renderDashboard();
-    alert("Semua progres lokal berhasil direset.");
+    renderDailyReminderBanner();
+    const msgEl = document.getElementById("backup-status-msg");
+    if (msgEl) msgEl.textContent = "Semua progres lokal direset.";
   });
 
   // Modals (Sessions & Global Search)
@@ -1331,8 +1508,12 @@ function renderChapterDetail() {
 
   document.getElementById("btn-toggle-mastered").addEventListener("click", () => {
     prog.mastered[ch.bab] = !prog.mastered[ch.bab];
-    if (prog.mastered[ch.bab]) awardXp(`bab_${c.id}_${ch.bab}`, 20);
-    saveProgress();
+    if (prog.mastered[ch.bab]) {
+      awardXp(`bab_${c.id}_${ch.bab}`, 20);
+      recordDailyActivity("chapters", c, `Paham ${ch.bab}`);
+    } else {
+      saveProgress();
+    }
     refreshGamifyUI();
     renderChapterSidebar();
     renderChapterDetail();
@@ -1710,6 +1891,7 @@ function renderCurrentQuestion() {
         }
       }
       saveProgress();
+      recordDailyActivity("questions", c, `Latihan ${q.bab} #${q.id}`);
       saveLastPosition({ section: "latihan", latihanTab: "quiz", qKey: q._key });
       checkStageCompletionCelebration(c, prog, q._stage);
       refreshGamifyUI();
@@ -1833,6 +2015,20 @@ function finishExam() {
   state.examActive = false;
   state.examSubmitted = true;
   state.activeQIdx = 0;
+
+  const examList = state.examQuestions;
+  const examRight = examList.filter((item) => state.examAnswers[item._key] === item.answer_index).length;
+  const examAns = examList.filter((item) => state.examAnswers[item._key] !== undefined).length;
+  const pct = examList.length ? Math.round((examRight / examList.length) * 100) : 0;
+  recordStudySession({
+    courseId: c.id,
+    courseTitle: c.title.split("(")[0].trim(),
+    mode: "Simulasi UAS",
+    score: `${examRight}/${examList.length} (${pct}%)`,
+    detail: `${examAns} dari ${examList.length} soal dijawab`,
+  });
+  recordDailyActivity("questions", c, `Simulasi UAS ${examRight}/${examList.length}`);
+
   saveProgress();
   refreshGamifyUI();
   updateCourseTopbar();
@@ -1956,6 +2152,7 @@ function rateCurrentFlashcard(nextStatus) {
     awardXp(`fc_${c.id}_${card.cardKey}`, 5);
   }
   saveProgress();
+  recordDailyActivity("flashcards", c, `Flashcard ${card.bab}`);
   refreshGamifyUI();
 
   // Update stats pill & move to next card
@@ -2233,7 +2430,7 @@ async function runActiveLab() {
       if (data.tests_passed) {
         prog.labPassed[lab.id] = true;
         awardXp(`lab_${c.id}_${lab.id}`, 15);
-        saveProgress();
+        recordDailyActivity("labs", c, `Lab #${lab.id}: ${lab.title}`);
         refreshGamifyUI();
         renderPracticeSidebar();
         const stEl = document.getElementById("lab-detail-status");
@@ -2257,7 +2454,7 @@ async function runActiveLab() {
     if (pass) {
       prog.labPassed[lab.id] = true;
       awardXp(`lab_${c.id}_${lab.id}`, 15);
-      saveProgress();
+      recordDailyActivity("labs", c, `Lab #${lab.id}: ${lab.title}`);
       refreshGamifyUI();
       renderPracticeSidebar();
       const stEl = document.getElementById("lab-detail-status");
@@ -2305,9 +2502,292 @@ function computeChapterStats(course) {
   });
 }
 
+function computeWeakestTopics(course) {
+  const prog = getCourseProg(course.id);
+  const qs = getStageQuestions(course, "all");
+  const topicMap = new Map();
+  qs.forEach((q) => {
+    const ch = getAnswer(prog, q);
+    if (ch === undefined || ch === q.answer_index) return;
+    const topic = q.remedial_section || q.bab || "Umum";
+    if (!topicMap.has(topic)) {
+      topicMap.set(topic, { topic, bab: q.bab, wrongCount: 0, priority: q.uas_priority || "Sedang" });
+    }
+    topicMap.get(topic).wrongCount += 1;
+  });
+  return [...topicMap.values()].sort((a, b) => b.wrongCount - a.wrongCount);
+}
+
+function computeReviewPriorities(course) {
+  const stats = computeChapterStats(course);
+  const prioWeight = { "Sangat Tinggi": 3, "Tinggi": 2, "Sedang": 1 };
+  const list = stats
+    .filter((s) => s.wrong_items.length > 0 || (s.acc !== null && s.acc < 80) || (!s.mastered_manual && s.uas_priority === "Sangat Tinggi"))
+    .map((s) => {
+      const subCounts = new Map();
+      s.wrong_items.forEach((w) => {
+        const key = w.remedial_section || w.bab;
+        subCounts.set(key, (subCounts.get(key) || 0) + 1);
+      });
+      const subtopicsOrdered = [...subCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, cnt]) => ({ name, count: cnt }));
+      const score =
+        s.wrong_items.length * 25 +
+        (s.acc !== null ? Math.max(0, 80 - s.acc) : 20) +
+        (prioWeight[s.uas_priority] || 1) * 10 +
+        (!s.mastered_manual ? 12 : 0);
+      return { ...s, subtopicsOrdered, priorityScore: score };
+    })
+    .sort((a, b) => b.priorityScore - a.priorityScore)
+    .map((s, idx) => {
+      let tierCls = "prio-3";
+      let tierLabel = "Perlu Review";
+      if (s.wrong_items.length >= 2 || (s.acc !== null && s.acc < 60) || (idx === 0 && s.wrong_items.length > 0)) {
+        tierCls = "prio-1";
+        tierLabel = "Kritis — Wajib Diulang";
+      } else if (s.wrong_items.length > 0 || s.uas_priority === "Sangat Tinggi") {
+        tierCls = "prio-2";
+        tierLabel = "Prioritas Tinggi";
+      }
+      return { ...s, rank: idx + 1, tierCls, tierLabel };
+    });
+  return list;
+}
+
+function renderHorizontalSvgBarChart({ rows, emptyText, targetThreshold = null }) {
+  if (!rows.length) {
+    return `<div class="empty-state" style="padding:20px;"><p style="margin:0;">${escHtml(emptyText)}</p></div>`;
+  }
+  const width = 560;
+  const labelW = 176;
+  const barMaxW = 272;
+  const barStartX = labelW + 8;
+  const rowH = 30;
+  const padTop = 24;
+  const height = padTop + rows.length * rowH + 18;
+
+  const gridLines = [0, 25, 50, 75, 100].map((pct) => {
+    const x = barStartX + (barMaxW * pct) / 100;
+    return `
+      <line x1="${x}" y1="${padTop - 8}" x2="${x}" y2="${height - 16}" stroke="currentColor" stroke-opacity="0.14" stroke-dasharray="3,3" />
+      <text x="${x}" y="12" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65">${pct}%</text>`;
+  }).join("");
+
+  const threshLine = targetThreshold !== null
+    ? (() => {
+        const tx = barStartX + (barMaxW * targetThreshold) / 100;
+        return `<line x1="${tx}" y1="${padTop - 8}" x2="${tx}" y2="${height - 14}" stroke="#5E8C75" stroke-width="1.6" stroke-dasharray="4,2" opacity="0.75" />`;
+      })()
+    : "";
+
+  const bars = rows.map((r, i) => {
+    const y = padTop + i * rowH;
+    const pctVal = r.pct === null ? 0 : Math.max(0, Math.min(100, r.pct));
+    const fillW = r.pct === null ? 0 : Math.max(4, Math.round((barMaxW * pctVal) / 100));
+    const lbl = r.label.length > 24 ? `${r.label.slice(0, 23)}…` : r.label;
+    return `
+      <g>
+        <text x="${labelW}" y="${y + 15}" text-anchor="end" font-size="11.5" font-weight="700" fill="currentColor">${escHtml(lbl)}</text>
+        <rect x="${barStartX}" y="${y + 3}" width="${barMaxW}" height="16" rx="7" fill="currentColor" fill-opacity="0.09" />
+        ${fillW ? `<rect x="${barStartX}" y="${y + 3}" width="${fillW}" height="16" rx="7" fill="${r.barColor}" />` : ""}
+        <text x="${barStartX + barMaxW + 8}" y="${y + 15}" font-size="11" font-weight="700" fill="currentColor" opacity="0.88">${escHtml(r.valueText)}</text>
+      </g>`;
+  }).join("");
+
+  return `
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Grafik batang skor belajar" style="color:var(--text);">
+      ${gridLines}
+      ${threshLine}
+      ${bars}
+    </svg>`;
+}
+
+function renderSessionHistoryPanel() {
+  const host = document.getElementById("stat-session-history");
+  if (!host) return;
+  const sessions = getStudySessions();
+  const reports = getSavedReports();
+  const combined = [
+    ...sessions.map((s) => ({
+      title: `${s.courseTitle} — ${s.mode}`,
+      sub: `${s.dateKey} (${s.modified}) • ${s.detail || `${s.count || 1} aktivitas`}`,
+      badge: s.score && s.score !== "-" ? `Skor ${s.score}` : `${s.count || 1}×`,
+    })),
+    ...reports.map((r) => ({
+      title: `📄 Ekspor MD — ${r.courseTitle || "Laporan"}`,
+      sub: `${r.modified} • ${r.filename}`,
+      badge: "Tersimpan",
+    })),
+  ].slice(0, 12);
+
+  if (!combined.length) {
+    host.innerHTML = `<div class="empty-state" style="padding:20px;"><p style="margin:0;">Belum ada riwayat sesi. Kerjakan soal, lab, flashcard, atau simpan laporan MD untuk merekam sesi.</p></div>`;
+    return;
+  }
+  host.innerHTML = `<div class="session-hist-list">${combined
+    .map(
+      (item) => `
+    <div class="sess-hist-item">
+      <div style="min-width:0;">
+        <div style="font-weight:800;font-size:13.5px;">${escHtml(item.title)}</div>
+        <div class="muted" style="font-size:12px;">${escHtml(item.sub)}</div>
+      </div>
+      <span class="c-badge pastel">${escHtml(item.badge)}</span>
+    </div>`
+    )
+    .join("")}</div>`;
+}
+
+function renderStatistikPanels(course) {
+  const g = getGamify();
+  const target = g.dailyTarget || 15;
+  const todayCnt = getTodayActivityCount();
+  const dailyPct = Math.min(100, Math.round((todayCnt / target) * 100));
+
+  const targetSel = document.getElementById("stat-daily-target");
+  if (targetSel) targetSel.value = String(target);
+  const progTxt = document.getElementById("stat-daily-progress-text");
+  if (progTxt) progTxt.textContent = `${todayCnt} / ${target} aktivitas (${dailyPct}%)${todayCnt >= target ? " 🎉 Tercapai!" : ""}`;
+  const progFill = document.getElementById("stat-daily-progress-fill");
+  if (progFill) progFill.style.width = `${dailyPct}%`;
+
+  const weakest = computeWeakestTopics(course);
+  const weakEl = document.getElementById("stat-weakest-topic");
+  const weakSubEl = document.getElementById("stat-weakest-sub");
+  if (weakEl && weakSubEl) {
+    if (!weakest.length) {
+      weakEl.textContent = "Belum ada kesalahan tercatat";
+      weakSubEl.textContent = "Bagus! Belum ada soal salah di mata kuliah ini.";
+    } else {
+      const top = weakest[0];
+      weakEl.textContent = `${top.bab}: ${top.topic}`;
+      weakSubEl.textContent = `${top.wrongCount} jawaban salah • Prioritas UAS: ${top.priority}` +
+        (weakest.length > 1 ? ` | Lainnya: ${weakest.slice(1, 3).map((x) => `${x.topic} (${x.wrongCount})`).join(", ")}` : "");
+    }
+  }
+
+  // Chart 1: Per Course Score
+  const courseChartHost = document.getElementById("chart-courses-svg");
+  if (courseChartHost) {
+    const courseRows = state.index.map((item) => {
+      const cObj = state.coursesCache[item.id];
+      const theme = getCourseTheme(item.id);
+      const shortName = `${theme.emoji} ${item.title.split("(")[0].trim()}`;
+      if (!cObj) return { label: shortName, pct: null, valueText: "-", barColor: theme.color };
+      const qs = getStageQuestions(cObj, "all");
+      const pObj = getCourseProg(item.id);
+      const ans = qs.filter((q) => getAnswer(pObj, q) !== undefined);
+      const cor = ans.filter((q) => getAnswer(pObj, q) === q.answer_index);
+      const pct = ans.length ? Math.round((cor.length / ans.length) * 100) : null;
+      return {
+        label: shortName,
+        pct,
+        valueText: pct !== null ? `${pct}% (${cor.length}/${ans.length})` : "Belum diuji",
+        barColor: theme.color,
+      };
+    });
+    courseChartHost.innerHTML = renderHorizontalSvgBarChart({ rows: courseRows, emptyText: "Belum ada data matkul." });
+  }
+
+  // Chart 2: Per Chapter Score (Active Course)
+  const chapStats = computeChapterStats(course);
+  const chapChartHost = document.getElementById("chart-chapters-svg");
+  if (chapChartHost) {
+    const chapRows = chapStats.map((s) => {
+      let barColor = "#B7D3C0";
+      if (s.acc !== null) {
+        if (s.acc >= 80) barColor = "#9FD4B8";
+        else if (s.acc >= 60) barColor = "#FFD9A0";
+        else barColor = "#F5B8C0";
+      }
+      return {
+        label: `${s.bab}: ${s.title}`,
+        pct: s.acc,
+        valueText: s.acc !== null ? `${s.acc}% (${s.correct}/${s.answered})` : "Belum diuji",
+        barColor,
+      };
+    });
+    chapChartHost.innerHTML = renderHorizontalSvgBarChart({
+      rows: chapRows,
+      emptyText: "Belum ada bab pada mata kuliah ini.",
+      targetThreshold: 80,
+    });
+  }
+
+  // Review Priorities Panel
+  const recHost = document.getElementById("stat-review-recommendations");
+  if (recHost) {
+    const recs = computeReviewPriorities(course);
+    if (!recs.length) {
+      recHost.innerHTML = `<div class="empty-state" style="padding:20px;"><p style="margin:0;">🎉 Luar biasa! Semua bab sudah terkuasai baik atau tidak ada kesalahan soal.</p></div>`;
+    } else {
+      recHost.innerHTML = `<div class="rec-list">${recs
+        .map(
+          (r) => `
+        <div class="rec-item ${r.tierCls}">
+          <div class="rec-head">
+            <div>
+              <strong>#${r.rank} ${escHtml(r.bab)}: ${escHtml(r.title)}</strong>
+              <div class="muted" style="font-size:12px;">
+                UAS: ${escHtml(r.uas_priority)} • ${r.wrong_items.length} salah${r.acc !== null ? ` • Akurasi ${r.acc}%` : " • Belum dipahami"}
+              </div>
+            </div>
+            <span class="rec-rank">${escHtml(r.tierLabel)}</span>
+          </div>
+          ${r.subtopicsOrdered.length ? `<div style="font-size:12.5px;color:var(--text);">Topik lemah: ${r.subtopicsOrdered.map((st) => `<strong>${escHtml(st.name)}</strong> (${st.count}×)`).join(", ")}</div>` : ""}
+          <div class="rec-actions">
+            <button class="btn btn-ghost btn-sm rec-goto-modul" data-bab="${escHtml(r.bab)}">📖 Buka Modul</button>
+            ${r.wrong_items.length ? `<button class="btn btn-primary btn-sm rec-goto-remedial" data-bab="${escHtml(r.bab)}">🔁 Remedial Bab Ini</button>` : ""}
+          </div>
+        </div>`
+        )
+        .join("")}</div>`;
+
+      recHost.querySelectorAll(".rec-goto-modul").forEach((b) => {
+        b.addEventListener("click", () => {
+          const idx = (course.chapters || []).findIndex((ch) => ch.bab === b.dataset.bab);
+          if (idx >= 0) {
+            state.activeChapterIdx = idx;
+            saveLastPosition({ section: "belajar", belajarTab: "modul", chapterIdx: idx });
+            switchBelajarTab("modul");
+            navigateTo("belajar");
+          }
+        });
+      });
+
+      recHost.querySelectorAll(".rec-goto-remedial").forEach((b) => {
+        b.addEventListener("click", () => {
+          state.quizMode = "remedial";
+          document.getElementById("quiz-mode").value = "remedial";
+          if (document.getElementById("quiz-filter-stage").querySelector('option[value="all"]')) {
+            state.activeStage = "all";
+            document.getElementById("quiz-filter-stage").value = "all";
+            populateQuizBabDropdown();
+          }
+          const babSel = document.getElementById("quiz-filter-bab");
+          if ([...babSel.options].some((o) => o.value === b.dataset.bab)) {
+            babSel.value = b.dataset.bab;
+          }
+          syncQuizModeUI();
+          applyQuizFilters(true);
+          switchLatihanTab("quiz");
+          navigateTo("latihan");
+        });
+      });
+    }
+  }
+
+  renderSessionHistoryPanel();
+}
+
 function buildDiagnosticMarkdown(course) {
   const prog = getCourseProg(course.id);
+  const g = getGamify();
   const stats = computeChapterStats(course);
+  const needReview = computeReviewPriorities(course);
+  const weakestTopics = computeWeakestTopics(course);
+  const notMastered = stats.filter((s) => !s.mastered_manual);
   const qs = getStageQuestions(course, "all");
   const totalAns = qs.filter((q) => getAnswer(prog, q) !== undefined).length;
   const totalCorrect = qs.filter((q) => getAnswer(prog, q) === q.answer_index).length;
@@ -2317,20 +2797,11 @@ function buildDiagnosticMarkdown(course) {
   const labsPassed = labs.filter((l) => prog.labPassed[l.id]).length;
   const nowStr = new Date().toLocaleString("id-ID");
 
-  const prioWeight = { "Sangat Tinggi": 3, "Tinggi": 2, "Sedang": 1 };
-  const needReview = stats
-    .filter((s) => (s.acc !== null && s.acc < 80) || (!s.mastered_manual && s.uas_priority === "Sangat Tinggi"))
-    .sort((a, b) => {
-      const accA = a.acc === null ? 50 : a.acc;
-      const accB = b.acc === null ? 50 : b.acc;
-      if (accA !== accB) return accA - accB;
-      return (prioWeight[b.uas_priority] || 1) - (prioWeight[a.uas_priority] || 1);
-    });
-
   let md = `# Laporan Analisis Sesi Belajar & Diagnostik UAS\n\n`;
   md += `- **Mata Kuliah**: ${course.title} (\`${course.code}\`)\n`;
   md += `- **Semester**: Semester ${course.semester}\n`;
   md += `- **Waktu Ekspor**: ${nowStr}\n`;
+  md += `- **Streak & Target Harian**: ${g.dailyStreak} hari | Hari ini ${getTodayActivityCount()}/${g.dailyTarget || 15} aktivitas (${g.xp} XP)\n`;
   md += `- **Skor Soal**: ${totalCorrect} / ${totalAns} dijawab (Total bank soal: ${qs.length}) — **Akurasi: ${overallAcc}%**\n`;
   md += `- **Lab Praktek Selesai**: ${labsPassed} / ${labs.length}\n\n`;
 
@@ -2341,62 +2812,79 @@ function buildDiagnosticMarkdown(course) {
     md += `| ${s.bab} | ${s.title} | ${s.uas_priority} | ${s.answered}/${s.total_q} | ${s.correct} | ${s.acc !== null ? s.acc + "%" : "-"} | ${s.status} | ${s.mastered_manual ? "Ya" : "Belum"} |\n`;
   }
 
-  md += `\n## 2. Bagian yang Belum Dipahami & Wajib Diulang (Prioritas UAS)\n\n`;
+  md += `\n## 2. Urutan Prioritas Topik & Bab yang Harus Diulang\n\n`;
   if (!needReview.length) {
     md += `Semua bab yang telah diuji mencapai akurasi >= 80%. Pertahankan dengan latihan soal acak dan cek bagian *Tambahan UAS*.\n\n`;
   } else {
-    needReview.forEach((s, i) => {
-      md += `### ${i + 1}. ${s.bab}: ${s.title} (Prioritas UAS: ${s.uas_priority})\n`;
-      md += `- **Status**: ${s.status} ${s.acc !== null ? `(Akurasi ${s.acc}%)` : "(Belum ditandai paham)"}\n`;
-      if (s.wrong_items.length) {
-        const subtopics = [...new Set(s.wrong_items.map((w) => w.remedial_section || w.bab))];
-        md += `- **Subtopik Spesifik untuk Diulang**:\n`;
-        subtopics.forEach((st) => { md += `  - ${st}\n`; });
+    needReview.forEach((s) => {
+      md += `### Prioritas #${s.rank} — ${s.bab}: ${s.title} [${s.tierLabel} | UAS: ${s.uas_priority}]\n`;
+      md += `- **Status**: ${s.status} ${s.acc !== null ? `(Akurasi ${s.acc}%, Salah ${s.wrong_items.length})` : "(Belum ditandai paham)"}\n`;
+      if (s.subtopicsOrdered.length) {
+        md += `- **Urutan Subtopik untuk Diulang**:\n`;
+        s.subtopicsOrdered.forEach((st, idx) => { md += `  ${idx + 1}. ${st.name} (${st.count} salah)\n`; });
       } else {
-        md += `- **Rekomendasi**: Baca ulang poin inti & rumus kunci pada modul ${s.bab}, lalu kerjakan seluruh soal bab ini.\n`;
+        md += `- **Rekomendasi**: Baca ulang poin inti & rumus kunci pada modul ${s.bab}, lalu kerjakan latihan soal bab ini.\n`;
       }
       if (s.note) md += `- **Catatan Pribadi Anda**: ${s.note}\n`;
       md += `\n`;
     });
   }
 
+  md += `## 3. Bagian yang Belum Ditandai Paham (${notMastered.length} Bab)\n\n`;
+  if (!notMastered.length) {
+    md += `Seluruh bab pada mata kuliah ini sudah ditandai paham.\n\n`;
+  } else {
+    notMastered.forEach((s) => {
+      md += `- **${s.bab}: ${s.title}** (Prioritas UAS: ${s.uas_priority}${s.acc !== null ? ` • Akurasi ${s.acc}%` : ""})\n`;
+    });
+    md += `\n`;
+  }
+
   const allWrong = qs.filter((q) => {
     const ch = getAnswer(prog, q);
     return ch !== undefined && ch !== q.answer_index;
   });
-  md += `## 3. Daftar Soal Salah & Remedial (${allWrong.length} Soal)\n\n`;
+  md += `## 4. Topik Terlemah & Daftar Soal Salah (${allWrong.length} Soal)\n\n`;
+  if (weakestTopics.length) {
+    md += `**Urutan Topik Terlemah:**\n`;
+    weakestTopics.forEach((wt, i) => {
+      md += `${i + 1}. **${wt.topic}** (${wt.bab}) — ${wt.wrongCount} salah (UAS: ${wt.priority})\n`;
+    });
+    md += `\n`;
+  }
   if (!allWrong.length) {
     md += `Belum ada soal salah yang tercatat pada sesi ini.\n\n`;
   } else {
     const letters = ["A", "B", "C", "D"];
     allWrong.forEach((q) => {
       const chosenIdx = getAnswer(prog, q);
+      const qn = getQuestionNote(prog, q);
       md += `- **Soal #${q.id} (${q.bab} | UAS: ${q.uas_priority})**: ${q.question}\n`;
       md += `  - Jawaban Anda: **${letters[chosenIdx]}** (${q.options[chosenIdx]})\n`;
       md += `  - Kunci Benar: **${letters[q.answer_index]}** (${q.options[q.answer_index]})\n`;
       md += `  - Remedial: *${q.remedial_section || q.bab}*\n`;
+      if (qn) md += `  - Catatan Soal Anda: ${qn}\n`;
       md += `  - Ringkasan Pembahasan: ${q.explanation}\n\n`;
     });
   }
 
   const unpassedLabs = labs.filter((l) => !prog.labPassed[l.id]);
-  md += `## 4. Status Lab Praktek / Live Coding\n\n`;
-  md += `- Selesai: **${labsPassed}** | Belum Selesai: **${unpassedLabs.length}**\n`;
+  md += `## 5. Status Lab Praktek & Rencana Aksi Menjelang UAS\n\n`;
+  md += `- Lab Selesai: **${labsPassed}** | Belum Selesai: **${unpassedLabs.length}**\n`;
   if (unpassedLabs.length) {
     md += `- Lab yang perlu diselesaikan:\n`;
     unpassedLabs.forEach((l) => { md += `  - Lab #${l.id} (${l.bab}): ${l.title}\n`; });
   }
-
-  md += `\n## 5. Rencana Aksi Menjelang UAS\n`;
-  md += `1. Ulangi materi pada daftar *Bagian yang Belum Dipahami* di atas mulai dari prioritas \`Sangat Tinggi\`.\n`;
-  md += `2. Buka tab **Tambahan UAS** dan **Cheat Sheet** pada portal untuk memastikan tidak ada materi BMP yang terlewat.\n`;
-  md += `3. Gunakan filter **Remedial (Salah)** di Simulasi Soal hingga seluruh soal remedial terjawab benar.\n`;
+  md += `\n1. Pelajari ulang daftar **Urutan Prioritas Topik & Bab yang Harus Diulang** di atas dari Prioritas #1.\n`;
+  md += `2. Buka tab **Tambahan UAS** dan **Cheat Sheet** untuk memastikan materi BMP tidak ada yang terlewat.\n`;
+  md += `3. Gunakan mode **Remedial (Soal Salah)** di Simulasi Soal hingga seluruh soal remedial terjawab benar.\n`;
   return md;
 }
 
 function renderAnalyticsTab() {
   const c = state.activeCourse;
   if (!c) return;
+  renderStatistikPanels(c);
   const stats = computeChapterStats(c);
   const tableHtml = `
     <div class="markdown-body">
@@ -2442,6 +2930,7 @@ function saveSessionToLocalHistory() {
   if (reports.length > 20) reports.length = 20;
   saveProgress();
   refreshSessionsCount();
+  renderSessionHistoryPanel();
   document.getElementById("save-status-msg").textContent = `✓ Tersimpan di riwayat browser (${filename}).`;
 }
 

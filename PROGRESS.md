@@ -62,16 +62,28 @@
      - `node --check app.js` dan `node --check sw.js` lulus; `verify_pwa.py` memverifikasi 21 target precache dan `manifest.json`; `git status -s -- data/` bersih.
      - Chrome QA mengonfirmasi `Aktif (portal-v5 siap offline)`, `0` error konsol & `0` issue Chromium, antrean flashcard pengulangan berjarak (`44` → `45` kartu saat ditandai Belum Hafal, `+5 XP` & persistensi `Hafal: 1/44`), seluruh 4 mode soal (`Acak`, `Remedial`, `Simulasi UAS` `10 Soal`/`15 Menit` menyembunyikan pembahasan hingga selesai lalu membuka koreksi & banner skor), bookmark + catatan soal/bab bertahan setelah reload, pencarian global `"Bayes"` menyorot `<mark>` di daftar maupun isi modul `Statistika — Sesi 2`, tombol `▶ Lanjut` memulihkan posisi tepat ke bab/soal terakhir, serta layout Mobile `390x844` bebas overflow.
 
+10. **Penambahan 5 Fitur Analitik, Rekomendasi, Cadangan JSON & Pengingat Harian (`portal-v6`)**:
+    - **Halaman Statistik Lengkap (Grafik SVG Sendiri)**: Dua grafik batang SVG *inline* ringan (`#chart-courses-svg` untuk seluruh 13 mata kuliah dan `#chart-chapters-svg` per bab dengan garis batas target `80%`), kartu **Target Harian** (`10`–`50`/hari, tersimpan di `localStorage`), **Topik Terlemah** (`remedial_section` terbanyak salah), **Streak**, dan **Riwayat Sesi** (`__studySessions` + laporan tersimpan).
+    - **Rekomendasi Belajar Terurut (`computeReviewPriorities`)**: Daftar **Bab yang Harus Diulang** diurutkan berdasarkan jumlah jawaban salah, jarak akurasi di bawah `80%`, bobot prioritas UAS, dan status paham, lengkap dengan subtopik lemah serta tombol **📖 Buka Modul** dan **🔁 Remedial Bab Ini**.
+    - **Ekspor Laporan Sesi `.md` Ditingkatkan (`buildDiagnosticMarkdown`)**: Memuat ringkasan target harian & streak, **Urutan Prioritas Topik & Bab yang Harus Diulang** beserta subtopiknya, **Bagian yang Belum Ditandai Paham**, serta **Topik Terlemah & Daftar Soal Salah** beserta catatan pribadi soal.
+    - **Ekspor & Impor Cadangan Progres JSON**: Penambahan tombol **⬆ Impor Cadangan (.json)** (`#btn-import-backup-json` + `#input-import-backup-json`) melengkapi ekspor terstruktur `schema_version: 2` (`theme_pref` + seluruh `progress`), dengan validasi JSON sebelum memulihkan ke `localStorage`.
+    - **Banner Pengingat Dalam Aplikasi (`#daily-reminder-banner`)**: Menampilkan pengingat *"Belum belajar hari ini"* dengan target harian dan streak saat aktivitas hari ini masih `0`, tombol **▶ Mulai Belajar** serta **Nanti**, dan otomatis tersembunyi setelah aktivitas belajar pertama hari ini tercatat.
+    - **Service Worker `portal-v6`**: Versi cache [sw.js](sw.js) dinaikkan ke `portal-v6` / `portal-runtime-v6` tanpa mengubah apa pun di dalam folder `data/`.
+    - **Hasil Uji (`http://localhost:8000` Desktop `1280x800` & Mobile `390x844`)**:
+      - `node --check app.js`, `node --check sw.js`, dan `verify_pwa.py` (21 aset precache & `manifest.json`) lulus; `git status -s -- data/` bersih.
+      - Node CLI mengonfirmasi file ekspor `cadangan_progres_portal_2026-11-23.json` berisi `app: portal-belajar-sains-data`, `schema_version: 2`, `theme: light`, `xp: 90`, `dailyTarget: 20`, `sessions: 1`, `reports: 2`, dan 13 mata kuliah.
+      - Chrome QA mengonfirmasi `Aktif (portal-v6 siap offline)`, `0` error konsol & `0` issue Chromium, banner *"Belum belajar hari ini"* tampil saat aktivitas `0` lalu menghilang otomatis begitu 1 aktivitas dilakukan, 2 grafik SVG kustom, target harian `20/hari` persisten, topik terlemah, urutan rekomendasi `#1`–`#8` + tombol `🔁 Remedial Bab Ini`, riwayat sesi, pratinjau & unduhan `.md` berisi urutan topik/bab belum dipahami, ekspor JSON berhasil, serta tampilan Mobile `390x844` bebas overflow halaman. *(Catatan: simulasi unggah file via `upload_file` Chrome DevTools MCP ke `#input-import-backup-json` ditolak oleh kebijakan workspace root server MCP, sehingga alur unggah dialog file browser belum dijalankan otomatis di Chrome).*
+
 ---
 
 ### Hal yang Tidak Dapat Berjalan Tanpa Server / Keterbatasan Mode Statis
 - **Pustaka Python di luar `stdlib + numpy + pandas`**: Sebanyak 96 lab yang mengimpor `scipy`, `scikit-learn`, atau `matplotlib` tidak dieksekusi di browser dan disajikan sebagai contoh baca-saja beserta output yang diharapkan.
 - **Penyimpanan ke folder disk server secara langsung**: Digantikan oleh unduhan browser (`Blob` + `<a download>`) dan riwayat `localStorage`.
-- **Sinkronisasi lintas perangkat**: Karena tanpa database/server, data `localStorage` hanya tersimpan di browser dan perangkat yang digunakan saat itu.
-- **Akses Offline Penuh Sebelum Kunjungan Pertama**: Aset lokal (`index.html`, `styles.css`, `app.js`, `manifest.json`, ikon, dan seluruh `data/`) di-*precache* oleh `sw.js`, sedangkan CDN (KaTeX, Marked.js, Pyodide, Google Fonts) di-*cache* ke `portal-runtime-v5` setelah pertama kali dimuat.
+- **Sinkronisasi lintas perangkat**: Karena tanpa database/server, data `localStorage` hanya tersimpan di browser dan perangkat yang digunakan saat itu; namun kini pengguna dapat **mengekspor & mengimpor cadangan `.json`** dari menu **Pengaturan** untuk memindahkan progres antar perangkat.
+- **Akses Offline Penuh Sebelum Kunjungan Pertama**: Aset lokal (`index.html`, `styles.css`, `app.js`, `manifest.json`, ikon, dan seluruh `data/`) di-*precache* oleh `sw.js`, sedangkan CDN (KaTeX, Marked.js, Pyodide, Google Fonts) di-*cache* ke `portal-runtime-v6` setelah pertama kali dimuat.
 
 ---
 
 ### Langkah Berikutnya
-1. Commit dan push pembaruan 5 fitur baru + tema Pastel Kalem (`portal-v5`) ini ke repositori GitHub `https://github.com/channotfound-exe/portal-belajar.git` branch `main` agar live di GitHub Pages.
-2. *(Opsional)* Tambahkan tombol impor cadangan `.json` di `Pengaturan` (melengkapi tombol ekspor cadangan yang sudah tersedia) untuk pemindahan progres antar perangkat.
+1. Commit dan push pembaruan fitur analitik, rekomendasi, cadangan JSON, pengingat harian, dan `portal-v6` ke repositori GitHub `https://github.com/channotfound-exe/portal-belajar.git` branch `main` agar live di GitHub Pages.
+2. *(Opsional)* Uji pilih file cadangan `.json` lewat dialog file browser langsung pada menu **Pengaturan → Impor Cadangan (.json)**.

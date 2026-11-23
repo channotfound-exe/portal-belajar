@@ -104,6 +104,21 @@
       </header>
 
       <main class="main-container">
+        <!-- BANNER PENGINGAT BELAJAR HARIAN (IN-APP) -->
+        <div id="daily-reminder-banner" class="reminder-banner" style="display:none;" role="status">
+          <div class="reminder-left">
+            <span class="reminder-icon" aria-hidden="true">☀️</span>
+            <div>
+              <strong id="reminder-title">Belum belajar hari ini</strong>
+              <div class="muted" id="reminder-desc" style="font-size:13px;"></div>
+            </div>
+          </div>
+          <div class="reminder-actions">
+            <button id="btn-reminder-start" class="btn btn-primary btn-sm">▶ Mulai Belajar</button>
+            <button id="btn-reminder-dismiss" class="btn btn-ghost btn-sm" aria-label="Tutup pengingat hari ini">Nanti</button>
+          </div>
+        </div>
+
         <!-- SECTION 1: BERANDA -->
         <section id="sec-beranda" class="page-section active">
           <div class="hero-pastel">
@@ -365,15 +380,67 @@
           <div class="badges-panel">
             <div class="row-between" style="margin-bottom:12px;">
               <div>
-                <h3 style="margin:0;">🏅 Pencapaian &amp; Streak Belajar</h3>
-                <p class="muted" style="margin:2px 0 0;">Progres ringan untuk menjaga ritme belajar Anda tanpa mengganggu fokus.</p>
+                <h3 style="margin:0;">🏅 Pencapaian, Streak &amp; Target Harian</h3>
+                <p class="muted" style="margin:2px 0 0;">Pantau konsistensi belajar harian, topik terlemah, serta grafik performa per matkul dan bab.</p>
               </div>
               <div class="gamify-pills">
                 <span class="g-pill g-peach">🔥 Streak <strong id="stat-streak">1</strong> hari</span>
                 <span class="g-pill g-lavender">✨ <strong id="stat-xp">0</strong> XP</span>
               </div>
             </div>
+
+            <div class="stat-kpi-strip">
+              <div class="stat-kpi-box">
+                <div class="row-between">
+                  <span class="muted-label">Target Belajar Hari Ini</span>
+                  <label style="font-size:12px;font-weight:700;color:var(--text-muted);">
+                    Target:
+                    <select id="stat-daily-target" name="stat_daily_target" class="mini-select" aria-label="Atur target belajar harian">
+                      <option value="10">10/hari</option>
+                      <option value="15" selected>15/hari</option>
+                      <option value="20">20/hari</option>
+                      <option value="30">30/hari</option>
+                      <option value="50">50/hari</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="stat-kpi-val" id="stat-daily-progress-text">0 / 15 aktivitas (0%)</div>
+                <div class="progress-track" style="margin-top:6px;"><div id="stat-daily-progress-fill" class="progress-fill" style="width:0%;background:linear-gradient(90deg,var(--sage),var(--lavender));"></div></div>
+              </div>
+              <div class="stat-kpi-box">
+                <div class="muted-label">Topik Terlemah (Matkul Aktif)</div>
+                <div class="stat-kpi-val" id="stat-weakest-topic">Belum ada kesalahan</div>
+                <div class="muted" id="stat-weakest-sub" style="font-size:12px;margin-top:4px;">Jawab soal latihan untuk analisis topik terlemah.</div>
+              </div>
+            </div>
+
             <div id="achievements-grid" class="achievements-grid"></div>
+          </div>
+
+          <div class="analytics-grid" style="margin-bottom:16px;">
+            <div class="analytics-card">
+              <h3 style="margin:0 0 6px;">📊 Grafik Skor Per Mata Kuliah</h3>
+              <p class="muted" style="margin:0 0 10px;">Akurasi soal (%) untuk seluruh 13 mata kuliah berdasarkan jawaban tersimpan.</p>
+              <div id="chart-courses-svg" class="svg-chart-wrap"></div>
+            </div>
+            <div class="analytics-card">
+              <h3 style="margin:0 0 6px;">📈 Grafik Skor Per Bab (Matkul Aktif)</h3>
+              <p class="muted" style="margin:0 0 10px;">Perbandingan akurasi tiap bab terhadap target penguasaan 80%.</p>
+              <div id="chart-chapters-svg" class="svg-chart-wrap"></div>
+            </div>
+          </div>
+
+          <div class="analytics-grid" style="margin-bottom:16px;">
+            <div class="analytics-card">
+              <h3 style="margin:0 0 6px;">🎯 Rekomendasi Belajar: Bab Harus Diulang</h3>
+              <p class="muted" style="margin:0 0 12px;">Diurutkan otomatis berdasarkan jumlah jawaban salah, akurasi di bawah 80%, dan prioritas UAS.</p>
+              <div id="stat-review-recommendations"></div>
+            </div>
+            <div class="analytics-card">
+              <h3 style="margin:0 0 6px;">🕒 Riwayat Sesi Belajar &amp; Ujian</h3>
+              <p class="muted" style="margin:0 0 12px;">Catatan aktivitas harian serta riwayat simulasi UAS dan ekspor diagnostik terakhir.</p>
+              <div id="stat-session-history"></div>
+            </div>
           </div>
 
           <div class="analytics-grid">
@@ -424,11 +491,14 @@
 
             <div class="settings-card">
               <h3>🗄️ Kelola Data &amp; Progres Lokal</h3>
-              <p class="muted">Seluruh jawaban, catatan, XP, streak, dan riwayat laporan tersimpan aman di <code>localStorage</code> browser Anda.</p>
+              <p class="muted">Seluruh jawaban, catatan, bookmark, flashcard, XP, streak, dan riwayat tersimpan di <code>localStorage</code>. Ekspor atau pulihkan cadangan kapan saja.</p>
               <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
-                <button id="btn-export-backup-json" class="btn btn-ghost">⬇ Cadangkan Progres (.json)</button>
+                <button id="btn-export-backup-json" class="btn btn-primary">⬇ Ekspor Cadangan (.json)</button>
+                <button id="btn-import-backup-json" class="btn btn-ghost">⬆ Impor Cadangan (.json)</button>
+                <input type="file" id="input-import-backup-json" accept="application/json,.json" style="display:none;" aria-label="Pilih file cadangan JSON" />
                 <button id="btn-reset-all-progress" class="btn btn-danger">🗑 Reset Semua Progres</button>
               </div>
+              <div id="backup-status-msg" class="save-status" style="margin-top:10px;"></div>
             </div>
           </div>
         </section>

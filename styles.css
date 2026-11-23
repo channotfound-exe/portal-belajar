@@ -791,3 +791,56 @@ body.theme-dark mark.search-hl { background: #F5D07A; color: #1F1D2E; }
 @media (max-width: 560px) {
   .fc-rate-bar { grid-template-columns: 1fr; }
 }
+
+/* In-App Daily Reminder Banner */
+.reminder-banner {
+  background: linear-gradient(135deg, rgba(255,217,199,0.52), rgba(213,200,240,0.4));
+  border: 1px solid var(--peach);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  box-shadow: var(--shadow);
+}
+.reminder-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 240px; }
+.reminder-icon {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: var(--bg-card); display: grid; place-items: center; font-size: 20px; flex-shrink: 0;
+}
+.reminder-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Statistik KPI, SVG Charts, Recommendations & Session History */
+.stat-kpi-strip {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px; margin-bottom: 16px;
+}
+.stat-kpi-box {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 14px;
+}
+.stat-kpi-val { font-size: 16px; font-weight: 800; margin-top: 6px; color: var(--text); }
+.mini-select {
+  background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 3px 8px; font-size: 12px; font-weight: 700;
+}
+.svg-chart-wrap { width: 100%; overflow-x: auto; }
+.svg-chart-wrap svg { display: block; width: 100%; height: auto; min-width: 320px; }
+.rec-list, .session-hist-list { display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; }
+.rec-item {
+  background: var(--bg); border: 1px solid var(--border); border-left: 5px solid var(--peach);
+  border-radius: var(--radius-md); padding: 12px 14px;
+}
+.rec-item.prio-1 { border-left-color: var(--wrong-border); background: rgba(250,221,218,0.22); }
+.rec-item.prio-2 { border-left-color: var(--peach); }
+.rec-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.rec-rank { font-size: 12px; font-weight: 800; padding: 2px 9px; border-radius: 999px; background: var(--peach); color: var(--peach-ink); }
+.rec-item.prio-1 .rec-rank { background: var(--wrong-bg); color: var(--wrong-ink); }
+.rec-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.sess-hist-item {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 11px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+}
